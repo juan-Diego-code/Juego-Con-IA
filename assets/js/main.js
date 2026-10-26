@@ -1,12 +1,14 @@
-// main.js - Punto de entrada y bucle del juego (Etapa 5)
+// main.js - Punto de entrada y bucle del juego (Etapa 6)
 
 (function () {
   const canvas = document.getElementById("gameCanvas");
   const fpsLabel = document.getElementById("fps");
+  const posLabel = document.getElementById("pos");
   const overlay = document.getElementById("overlay");
   const inventoryEl = document.getElementById("inventory");
   const blockLabel = document.getElementById("blockLabel");
-  const REACH = 6; // alcance en bloques
+  const REACH = 6;            // alcance en bloques
+  const RENDER_DISTANCE = 4;  // chunks visibles alrededor del jugador (radio)
   let renderer;
 
   try {
@@ -18,27 +20,54 @@
     return;
   }
 
-  // ----- Mundo: 6x6 chunks (96x96 bloques) -----
-  const world = new World(6, 1234);
-  world.generateAll();
+  // ----- Mundo infinito: los chunks se crean y se dibujan según la posición del jugador -----
+  const world = new World(1234);
+  renderer.setFog(RENDER_DISTANCE * 16 - 28, RENDER_DISTANCE * 16 - 4);
 
-  const chunkMeshes = new Map(); // "cx,cz" -> malla en la GPU
-  let meshList = [];
+  const chunkMeshes = new Map(); // clave -> {cx, cz, mesh}
+  let meshList = [], meshListDirty = true;
+  let pending = [], lastCX = null, lastCZ = null;
 
   function rebuildChunk(cx, cz) {
     const key = world.key(cx, cz);
     const old = chunkMeshes.get(key);
-    if (old) { renderer.deleteMesh(old); chunkMeshes.delete(key); }
+    if (old && old.mesh) renderer.deleteMesh(old.mesh);
     const verts = world.buildChunkMesh(cx, cz);
-    if (verts.length > 0) chunkMeshes.set(key, renderer.createChunkMesh(verts));
+    chunkMeshes.set(key, { cx, cz, mesh: verts.length > 0 ? renderer.createChunkMesh(verts) : null });
+    meshListDirty = true;
   }
-  for (let cx = 0; cx < world.size; cx++)
-    for (let cz = 0; cz < world.size; cz++) rebuildChunk(cx, cz);
-  meshList = Array.from(chunkMeshes.values());
+
+  // Si el jugador cambió de chunk: descarga mallas lejanas y prepara la cola de las cercanas
+  function updateStreaming() {
+    const pcx = Math.floor(player.pos[0] / CHUNK_SIZE), pcz = Math.floor(player.pos[2] / CHUNK_SIZE);
+    if (pcx === lastCX && pcz === lastCZ) return;
+    lastCX = pcx; lastCZ = pcz;
+    for (const [key, e] of chunkMeshes) {
+      if (Math.max(Math.abs(e.cx - pcx), Math.abs(e.cz - pcz)) > RENDER_DISTANCE + 1) {
+        if (e.mesh) renderer.deleteMesh(e.mesh);
+        chunkMeshes.delete(key); // los datos del chunk se conservan en world.chunks
+        meshListDirty = true;
+      }
+    }
+    pending = [];
+    for (let dx = -RENDER_DISTANCE; dx <= RENDER_DISTANCE; dx++)
+      for (let dz = -RENDER_DISTANCE; dz <= RENDER_DISTANCE; dz++)
+        if (!chunkMeshes.has(world.key(pcx + dx, pcz + dz))) pending.push([pcx + dx, pcz + dz, dx * dx + dz * dz]);
+    pending.sort((a, b) => a[2] - b[2]); // primero los más cercanos
+  }
+
+  // Construye mallas pendientes sin pasarse de un tiempo por fotograma (evita tirones)
+  function processPending(budgetMs) {
+    const t0 = performance.now();
+    while (pending.length > 0 && performance.now() - t0 < budgetMs) {
+      const [cx, cz] = pending.shift();
+      if (!chunkMeshes.has(world.key(cx, cz))) rebuildChunk(cx, cz);
+    }
+  }
 
   // ----- Jugador e inventario -----
-  const sx = Math.floor(world.size * CHUNK_SIZE / 2), sz = sx;
-  const player = new Player(canvas, world, sx + 0.5, world.getSurfaceY(sx, sz) + 2, sz + 0.5);
+  const spawn = world.findSpawn();
+  const player = new Player(canvas, world, spawn[0], spawn[1], spawn[2]);
   const inventory = new Inventory();
   const ui = new InventoryUI(inventory, createAtlasCanvas());
   let inventoryOpen = false;
@@ -66,7 +95,8 @@
     } else {
       ui.returnCursor();
       showSelectedName();
-      canvas.requestPointerLock();
+      const r = canvas.requestPointerLock();
+      if (r && r.catch) r.catch(() => {});
     }
     updateOverlay();
   }
@@ -89,7 +119,6 @@
     const dirty = world.setBlock(x, y, z, id);
     if (!dirty) return;
     for (const [cx, cz] of dirty) rebuildChunk(cx, cz);
-    meshList = Array.from(chunkMeshes.values());
   }
 
   document.addEventListener("mousedown", e => {
@@ -117,9 +146,23 @@
   inventoryEl.addEventListener("contextmenu", e => e.preventDefault());
 
   // Clic para capturar el ratón (Escape lo libera)
-  canvas.addEventListener("click", () => { if (!player.locked && !inventoryOpen) canvas.requestPointerLock(); });
+  // El clic puede caer en el canvas o en el mensaje "Haz clic para jugar" (que lo cubre): se escuchan ambos
+  function requestPlay() {
+    if (player.locked || inventoryOpen) return;
+    const r = canvas.requestPointerLock();
+    if (r && r.catch) r.catch(() => {}); // el navegador puede rechazarlo si acabas de pulsar Esc
+  }
+  canvas.addEventListener("click", requestPlay);
+  overlay.addEventListener("click", requestPlay);
   document.addEventListener("pointerlockchange", updateOverlay);
   showSelectedName();
+
+  // Primeros chunks (los más cercanos) listos antes de empezar; el resto se carga poco a poco
+  updateStreaming();
+  for (let i = 0; i < 9 && pending.length > 0; i++) {
+    const [cx, cz] = pending.shift();
+    rebuildChunk(cx, cz);
+  }
 
   // ----- Bucle -----
   let last = performance.now(), frames = 0, fpsTimer = 0;
@@ -127,14 +170,21 @@
     const dt = Math.min((now - last) / 1000, 0.1);
     last = now;
     player.update(dt);
+    updateStreaming();
+    processPending(8);
+    if (meshListDirty) {
+      meshList = Array.from(chunkMeshes.values()).filter(e => e.mesh).map(e => e.mesh);
+      meshListDirty = false;
+    }
     target = player.locked ? world.raycast(player.eye, player.lookDir, REACH) : null;
-    renderer.render(player.getViewMatrix(), meshList, target);
+    renderer.render(player.getViewMatrix(), meshList, target, player.eye);
 
     if (labelTimer > 0) { labelTimer -= dt; if (labelTimer <= 0) blockLabel.hidden = true; }
     frames++;
     fpsTimer += dt;
     if (fpsTimer >= 0.5) {
       fpsLabel.textContent = Math.round(frames / fpsTimer);
+      posLabel.textContent = "X:" + Math.floor(player.pos[0]) + " Y:" + Math.floor(player.pos[1]) + " Z:" + Math.floor(player.pos[2]);
       frames = 0;
       fpsTimer = 0;
     }

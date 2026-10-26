@@ -1,6 +1,6 @@
 # Minecraft Web (WebGL nativo)
 
-## Estado: Etapa 5 - Inventario y barra de acceso rápido
+## Estado: Etapa 6 - Árboles y mundo infinito por chunks
 
 ### Cómo ejecutarlo en Windows
 1. Descarga la carpeta `minecraft-web` y descomprímela si viene en ZIP.
@@ -43,3 +43,10 @@ No necesita Node.js ni instalar nada.
 - Clic derecho coloca el bloque activo y gasta uno; con el hueco vacío no coloca nada.
 - E abre el inventario (36 huecos). Clic coge una pila, clic en otro hueco la suelta, junta o intercambia. E o Esc lo cierra.
 - Si la pantalla no ocupa toda la ventana: asegúrate de que `style.css` esté en la misma carpeta que `index.html` y recarga con Ctrl+F5.
+
+### Etapa 6: qué comprobar
+- El mundo ya no tiene bordes: camina (o vuela con F) en cualquier dirección y siguen apareciendo chunks.
+- Hay árboles con tronco de madera y copa de hojas; se pueden talar y recoger.
+- A lo lejos hay una niebla suave que oculta el borde de lo cargado.
+- Arriba a la izquierda se ven FPS y tu posición (X, Y, Z).
+- Los estilos están en `style.css`, que debe estar en la misma carpeta que `index.html`.

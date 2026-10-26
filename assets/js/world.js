@@ -1,4 +1,4 @@
-// world.js - Generación del terreno y mallas por chunks
+// world.js - Mundo infinito por chunks: terreno, árboles y mallas
 
 const CHUNK_SIZE = 16;
 const WORLD_HEIGHT = 48;
@@ -31,16 +31,22 @@ const FACE_DEFS = [
   { dir: [-1, 0, 0], shade: 0.65, tex: "side",   v: [[0,0,0],[0,0,1],[0,1,1],[0,1,0]] }
 ];
 
+// UV de las esquinas con un pequeño margen para que no se cuelen píxeles del tile vecino
+const UV_INSET = CORNER_UV.map(c => c.map(v => Math.min(Math.max(v, 0.001), 0.999)));
+const QUAD_ORDER = [0, 1, 2, 0, 2, 3];
+
 class World {
-  constructor(sizeInChunks, seed) {
-    this.size = sizeInChunks; // el mundo mide size x size chunks
+  constructor(seed) {
     this.seed = seed;
-    this.chunks = new Map();
+    this.chunks = new Map();      // clave numérica -> Uint8Array con los bloques del chunk
+    this.modified = new Set();    // chunks que el jugador cambió (para guardar en la etapa 7)
+    this._lastKey = null;         // caché del último chunk consultado (acelera getBlock)
+    this._lastChunk = null;
   }
 
-  key(cx, cz) { return cx + "," + cz; }
+  key(cx, cz) { return cx * 65536 + cz; }
 
-  // ----- Generación del terreno -----
+  // ----- Terreno -----
   getTerrainHeight(x, z) {
     const n = valueNoise(x / 40, z / 40, this.seed) * 14 +
               valueNoise(x / 14, z / 14, this.seed + 1) * 6 +
@@ -48,11 +54,21 @@ class World {
     return Math.floor(10 + n);
   }
 
+  // ¿Hay un árbol con raíz en esta columna? Devuelve la altura del tronco (0 = no hay).
+  // Depende solo de (x, z): así un árbol que cruza el borde de dos chunks queda completo.
+  treeTrunkHeight(x, z) {
+    if (hash2(x, z, this.seed + 7) > 0.01) return 0;
+    if (this.getTerrainHeight(x, z) <= SEA_LEVEL + 1) return 0; // no en la playa
+    return 4 + Math.floor(hash2(x, z, this.seed + 8) * 2);     // 4 o 5 bloques
+  }
+
   generateChunk(cx, cz) {
     const data = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
+    const ox = cx * CHUNK_SIZE, oz = cz * CHUNK_SIZE;
+
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        const h = this.getTerrainHeight(cx * CHUNK_SIZE + lx, cz * CHUNK_SIZE + lz);
+        const h = this.getTerrainHeight(ox + lx, oz + lz);
         const beach = h <= SEA_LEVEL + 1;
         for (let y = 0; y <= h && y < WORLD_HEIGHT; y++) {
           let id = Blocks.STONE;
@@ -62,37 +78,76 @@ class World {
         }
       }
     }
-    this.chunks.set(this.key(cx, cz), data);
+
+    // Escribe un bloque si cae dentro de este chunk (y solo sobre aire)
+    const put = (x, y, z, id) => {
+      const lx = x - ox, lz = z - oz;
+      if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT) return;
+      const i = (lx * WORLD_HEIGHT + y) * CHUNK_SIZE + lz;
+      if (data[i] === Blocks.AIR) data[i] = id;
+    };
+
+    // Se revisan también 2 bloques fuera del chunk: las hojas de un árbol vecino pueden entrar aquí
+    for (let pass = 0; pass < 2; pass++) {
+      for (let x = ox - 2; x < ox + CHUNK_SIZE + 2; x++) {
+        for (let z = oz - 2; z < oz + CHUNK_SIZE + 2; z++) {
+          const t = this.treeTrunkHeight(x, z);
+          if (!t) continue;
+          const h = this.getTerrainHeight(x, z), top = h + t;
+          if (pass === 0) { // 1.ª pasada: troncos
+            for (let y = h + 1; y <= top; y++) put(x, y, z, Blocks.WOOD);
+          } else {          // 2.ª pasada: copa de hojas (4 capas)
+            for (let dy = -2; dy <= 1; dy++) {
+              const r = dy <= -1 ? 2 : 1;
+              for (let dx = -r; dx <= r; dx++) {
+                for (let dz = -r; dz <= r; dz++) {
+                  if (Math.abs(dx) === r && Math.abs(dz) === r && (r === 2 || dy === 1)) continue; // esquinas redondeadas
+                  put(x + dx, top + dy, z + dz, Blocks.LEAVES);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    return data;
   }
 
-  generateAll() {
-    for (let cx = 0; cx < this.size; cx++)
-      for (let cz = 0; cz < this.size; cz++) this.generateChunk(cx, cz);
+  // Devuelve el chunk; si todavía no existe, lo genera
+  getChunk(cx, cz) {
+    const k = this.key(cx, cz);
+    if (k === this._lastKey) return this._lastChunk;
+    let chunk = this.chunks.get(k);
+    if (!chunk) {
+      chunk = this.generateChunk(cx, cz);
+      this.chunks.set(k, chunk);
+    }
+    this._lastKey = k;
+    this._lastChunk = chunk;
+    return chunk;
   }
 
   // ----- Acceso a bloques con coordenadas globales -----
   getBlock(x, y, z) {
     if (y < 0 || y >= WORLD_HEIGHT) return Blocks.AIR;
     const cx = Math.floor(x / CHUNK_SIZE), cz = Math.floor(z / CHUNK_SIZE);
-    const chunk = this.chunks.get(this.key(cx, cz));
-    if (!chunk) return Blocks.AIR;
-    const lx = x - cx * CHUNK_SIZE, lz = z - cz * CHUNK_SIZE;
-    return chunk[(lx * WORLD_HEIGHT + y) * CHUNK_SIZE + lz];
+    const chunk = this.getChunk(cx, cz);
+    return chunk[((x - cx * CHUNK_SIZE) * WORLD_HEIGHT + y) * CHUNK_SIZE + (z - cz * CHUNK_SIZE)];
   }
 
   // Cambia un bloque. Devuelve la lista de chunks [cx,cz] que hay que reconstruir (o null si no es válido)
   setBlock(x, y, z, id) {
-    const limit = this.size * CHUNK_SIZE;
-    if (y < 0 || y >= WORLD_HEIGHT || x < 0 || z < 0 || x >= limit || z >= limit) return null;
+    if (y < 0 || y >= WORLD_HEIGHT) return null;
     const cx = Math.floor(x / CHUNK_SIZE), cz = Math.floor(z / CHUNK_SIZE);
     const lx = x - cx * CHUNK_SIZE, lz = z - cz * CHUNK_SIZE;
-    this.chunks.get(this.key(cx, cz))[(lx * WORLD_HEIGHT + y) * CHUNK_SIZE + lz] = id;
+    this.getChunk(cx, cz)[(lx * WORLD_HEIGHT + y) * CHUNK_SIZE + lz] = id;
+    this.modified.add(this.key(cx, cz));
     const dirty = [[cx, cz]];
-    // Si el bloque está en el borde del chunk, el vecino también cambia sus caras visibles
-    if (lx === 0 && cx > 0) dirty.push([cx - 1, cz]);
-    if (lx === CHUNK_SIZE - 1 && cx < this.size - 1) dirty.push([cx + 1, cz]);
-    if (lz === 0 && cz > 0) dirty.push([cx, cz - 1]);
-    if (lz === CHUNK_SIZE - 1 && cz < this.size - 1) dirty.push([cx, cz + 1]);
+    // En el borde del chunk, el vecino también cambia sus caras visibles
+    if (lx === 0) dirty.push([cx - 1, cz]);
+    if (lx === CHUNK_SIZE - 1) dirty.push([cx + 1, cz]);
+    if (lz === 0) dirty.push([cx, cz - 1]);
+    if (lz === CHUNK_SIZE - 1) dirty.push([cx, cz + 1]);
     return dirty;
   }
 
@@ -121,10 +176,9 @@ class World {
     return null;
   }
 
-  // Para colisiones: fuera del mundo (horizontal) cuenta como muro
+  // Para colisiones (el mundo es infinito en horizontal; solo el fondo es sólido)
   isSolidAt(x, y, z) {
-    const limit = this.size * CHUNK_SIZE;
-    if (x < 0 || z < 0 || x >= limit || z >= limit || y < 0) return true;
+    if (y < 0) return true;
     return Blocks.isSolid(this.getBlock(x, y, z));
   }
 
@@ -135,26 +189,44 @@ class World {
     return 0;
   }
 
+  // Busca un lugar de inicio en tierra firme, sin árboles encima
+  findSpawn() {
+    for (let k = 0; k < 200; k++) {
+      const x = 8 + k * 3, z = 8;
+      const h = this.getTerrainHeight(x, z);
+      let free = h > SEA_LEVEL + 1;
+      for (let dy = 1; dy <= 4 && free; dy++) // espacio libre para el cuerpo (1.8) y el salto
+        if (this.getBlock(x, h + dy, z) !== Blocks.AIR) free = false;
+      if (free) return [x + 0.5, h + 2, z + 0.5];
+    }
+    return [8.5, this.getSurfaceY(8, 8) + 2, 8.5];
+  }
+
   // ----- Malla del chunk: solo caras visibles (vecino = aire) -----
   buildChunkMesh(cx, cz) {
     const out = [];
-    const eps = 0.001, ox = cx * CHUNK_SIZE, oz = cz * CHUNK_SIZE;
+    const ox = cx * CHUNK_SIZE, oz = cz * CHUNK_SIZE;
+    const data = this.getChunk(cx, cz);
+
+    // Altura máxima con bloques: arriba de eso solo hay aire y no hace falta revisarlo
+    let maxY = 0;
+    for (let i = 0; i < data.length; i++)
+      if (data[i] !== Blocks.AIR) { const y = Math.floor(i / CHUNK_SIZE) % WORLD_HEIGHT; if (y > maxY) maxY = y; }
+    maxY = Math.min(maxY + 1, WORLD_HEIGHT - 1);
+
     for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      for (let y = 0; y < WORLD_HEIGHT; y++) {
+      for (let y = 0; y <= maxY; y++) {
         for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-          const x = ox + lx, z = oz + lz;
-          const id = this.getBlock(x, y, z);
+          const id = data[(lx * WORLD_HEIGHT + y) * CHUNK_SIZE + lz];
           if (id === Blocks.AIR) continue;
-          const info = Blocks.data[id];
+          const x = ox + lx, z = oz + lz, info = Blocks.data[id];
           for (const f of FACE_DEFS) {
             if (Blocks.isSolid(this.getBlock(x + f.dir[0], y + f.dir[1], z + f.dir[2]))) continue;
             const tile = info[f.tex];
-            const quad = f.v.map((p, i) => {
-              const cu = Math.min(Math.max(CORNER_UV[i][0], eps), 1 - eps);
-              const cv = Math.min(Math.max(CORNER_UV[i][1], eps), 1 - eps);
-              return [x + p[0], y + p[1], z + p[2], (tile + cu) / ATLAS_TILES, cv, f.shade];
-            });
-            for (const i of [0, 1, 2, 0, 2, 3]) out.push(...quad[i]);
+            for (const i of QUAD_ORDER) { // 2 triángulos por cara
+              const p = f.v[i], uv = UV_INSET[i];
+              out.push(x + p[0], y + p[1], z + p[2], (tile + uv[0]) / ATLAS_TILES, uv[1], f.shade);
+            }
           }
         }
       }

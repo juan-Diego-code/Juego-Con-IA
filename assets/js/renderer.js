@@ -52,22 +52,28 @@ attribute vec3 aPos;
 attribute vec2 aUV;
 attribute float aShade;
 uniform mat4 uMVP;
+uniform vec3 uCam;
 varying vec2 vUV;
 varying float vShade;
+varying float vDist;
 void main() {
   vUV = aUV;
   vShade = aShade;
+  vDist = distance(aPos, uCam);
   gl_Position = uMVP * vec4(aPos, 1.0);
 }`;
 
 const FRAGMENT_SHADER = `
 precision mediump float;
 uniform sampler2D uAtlas;
+uniform vec2 uFog;
 varying vec2 vUV;
 varying float vShade;
+varying float vDist;
 void main() {
-  vec4 color = texture2D(uAtlas, vUV);
-  gl_FragColor = vec4(color.rgb * vShade, 1.0);
+  vec3 rgb = texture2D(uAtlas, vUV).rgb * vShade;
+  float f = smoothstep(uFog.x, uFog.y, vDist); // niebla: oculta el borde del mundo cargado
+  gl_FragColor = vec4(mix(rgb, vec3(0.53, 0.81, 0.92), f), 1.0);
 }`;
 
 // Shaders sencillos para dibujar el contorno negro del bloque apuntado
@@ -82,7 +88,7 @@ void main() { gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); }`;
 
 // ---------- Atlas de texturas creado con Canvas (sin imágenes externas) ----------
 const TILE = 16;
-const ATLAS_TILES = 5; // 0 césped(arriba), 1 césped(lado), 2 tierra, 3 piedra, 4 arena
+const ATLAS_TILES = 8; // 0 césped(arriba), 1 césped(lado), 2 tierra, 3 piedra, 4 arena, 5 madera(lado), 6 madera(arriba), 7 hojas
 
 function rand(seed) { // generador pseudoaleatorio sencillo
   let s = seed;
@@ -102,6 +108,28 @@ function drawPixelTile(ctx, index, baseColor, variation, seed, topColor, topRows
   }
 }
 
+function setPixel(ctx, index, x, y, c) {
+  ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+  ctx.fillRect(index * TILE + x, y, 1, 1);
+}
+
+function drawWoodSide(ctx, index) {
+  const r = rand(66);
+  for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+    const base = (x % 4 === 0) ? [85, 64, 38] : [110, 84, 52]; // vetas verticales
+    const v = (r() - 0.5) * 18;
+    setPixel(ctx, index, x, y, base.map(c => c + v));
+  }
+}
+
+function drawWoodTop(ctx, index) {
+  for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+    const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); // anillos cuadrados
+    const c = d > 6.5 ? [95, 72, 43] : (Math.floor(d) % 2 ? [170, 135, 85] : [145, 112, 68]);
+    setPixel(ctx, index, x, y, c);
+  }
+}
+
 function createAtlasCanvas() {
   const canvas = document.createElement("canvas");
   canvas.width = TILE * ATLAS_TILES;
@@ -113,6 +141,9 @@ function createAtlasCanvas() {
   drawPixelTile(ctx, 2, DIRT, 40, 33);
   drawPixelTile(ctx, 3, STONE, 50, 44);
   drawPixelTile(ctx, 4, [219, 207, 142], 25, 55);
+  drawWoodSide(ctx, 5);
+  drawWoodTop(ctx, 6);
+  drawPixelTile(ctx, 7, [44, 112, 36], 70, 77); // hojas
   return canvas;
 }
 
@@ -158,10 +189,15 @@ class Renderer {
       aUV: gl.getAttribLocation(this.program, "aUV"),
       aShade: gl.getAttribLocation(this.program, "aShade"),
       uMVP: gl.getUniformLocation(this.program, "uMVP"),
+      uCam: gl.getUniformLocation(this.program, "uCam"),
+      uFog: gl.getUniformLocation(this.program, "uFog"),
       uAtlas: gl.getUniformLocation(this.program, "uAtlas")
     };
     this.atlas = this.createTexture(createAtlasCanvas());
     this.cube = this.createMesh(buildCubeMesh());
+    this.eye = [0, 0, 0];
+    this.fogStart = 1e5; // sin niebla por defecto
+    this.fogEnd = 1e5 + 1;
     this.initOutline();
 
     gl.enable(gl.DEPTH_TEST);
@@ -283,6 +319,8 @@ class Renderer {
     const gl = this.gl, L = this.loc, stride = 6 * 4;
     gl.useProgram(this.program);
     gl.uniformMatrix4fv(L.uMVP, false, mvp);
+    gl.uniform3fv(L.uCam, this.eye);
+    gl.uniform2f(L.uFog, this.fogStart, this.fogEnd);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.atlas);
     gl.uniform1i(L.uAtlas, 0);
@@ -301,8 +339,11 @@ class Renderer {
     }
   }
 
-  render(view, meshes, target) {
+  setFog(start, end) { this.fogStart = start; this.fogEnd = end; }
+
+  render(view, meshes, target, eye) {
     const gl = this.gl;
+    this.eye = eye || [0, 0, 0];
     this.resize();
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const aspect = this.canvas.width / this.canvas.height;
