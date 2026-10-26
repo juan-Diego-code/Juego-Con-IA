@@ -80,6 +80,13 @@ class World {
     return chunk[(lx * WORLD_HEIGHT + y) * CHUNK_SIZE + lz];
   }
 
+  // Para colisiones: fuera del mundo (horizontal) cuenta como muro
+  isSolidAt(x, y, z) {
+    const limit = this.size * CHUNK_SIZE;
+    if (x < 0 || z < 0 || x >= limit || z >= limit || y < 0) return true;
+    return Blocks.isSolid(this.getBlock(x, y, z));
+  }
+
   // Altura del bloque sólido más alto en una columna
   getSurfaceY(x, z) {
     for (let y = WORLD_HEIGHT - 1; y >= 0; y--)

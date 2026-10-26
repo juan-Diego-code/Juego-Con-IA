@@ -1,4 +1,4 @@
-// main.js - Punto de entrada y bucle del juego (Etapa 2)
+// main.js - Punto de entrada y bucle del juego (Etapa 3)
 
 (function () {
   const canvas = document.getElementById("gameCanvas");
@@ -28,7 +28,7 @@
 
   // ----- Jugador en el centro, sobre el terreno -----
   const sx = Math.floor(world.size * CHUNK_SIZE / 2), sz = sx;
-  const player = new Player(canvas, sx + 0.5, world.getSurfaceY(sx, sz) + 4, sz + 0.5);
+  const player = new Player(canvas, world, sx + 0.5, world.getSurfaceY(sx, sz) + 2, sz + 0.5);
 
   // Clic para capturar el ratón (Escape lo libera)
   canvas.addEventListener("click", () => { if (!player.locked) canvas.requestPointerLock(); });
