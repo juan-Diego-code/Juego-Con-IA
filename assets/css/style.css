@@ -1,0 +1,38 @@
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  font-family: "Courier New", monospace;
+}
+
+#gameCanvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  image-rendering: pixelated;
+}
+
+#hud {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  padding: 4px 8px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  font-size: 14px;
+}
+
+#error {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: #400;
+  font-size: 20px;
+  text-align: center;
+  padding: 20px;
+}
+#error[hidden] { display: none; }
