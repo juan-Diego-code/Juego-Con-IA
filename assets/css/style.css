@@ -36,3 +36,29 @@ html, body {
   padding: 20px;
 }
 #error[hidden] { display: none; }
+
+#crosshair {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 28px;
+  text-shadow: 0 0 3px #000;
+  pointer-events: none;
+}
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  font-size: 32px;
+  cursor: pointer;
+}
+#overlay[hidden] { display: none; }
+#overlay small { font-size: 16px; margin-top: 12px; }

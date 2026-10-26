@@ -3,16 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Minecraft Web - Etapa 1</title>
+  <title>Minecraft Web - Etapa 2</title>
   <link rel="stylesheet" href="./assets/css/style.css">
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
-  <div id="hud">Etapa 1: cubo WebGL · FPS: <span id="fps">0</span></div>
+  <div id="hud">Etapa 2 · FPS: <span id="fps">0</span></div>
+  <div id="crosshair">+</div>
+  <div id="overlay">Haz clic para jugar<br><small>WASD mover · Espacio subir · Shift bajar · Esc salir</small></div>
   <div id="error" hidden></div>
 
   <!-- Scripts clásicos (no módulos) para que funcione con doble clic en Windows -->
   <script src="./assets/js/renderer.js"></script>
-  <script src="js/main.js"></script>
+  <script src="./assets/js/blocks.js"></script>
+  <script src="./assets/js/world.js"></script>
+  <script src="./assets/js/player.js"></script>
+  <script src="./assets/js/main.js"></script>
 </body>
 </html>

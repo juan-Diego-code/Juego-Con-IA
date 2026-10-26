@@ -72,7 +72,7 @@ void main() {
 
 // ---------- Atlas de texturas creado con Canvas (sin imágenes externas) ----------
 const TILE = 16;
-const ATLAS_TILES = 4; // 0 césped(arriba), 1 césped(lado), 2 tierra, 3 piedra
+const ATLAS_TILES = 5; // 0 césped(arriba), 1 césped(lado), 2 tierra, 3 piedra, 4 arena
 
 function rand(seed) { // generador pseudoaleatorio sencillo
   let s = seed;
@@ -102,6 +102,7 @@ function createAtlasCanvas() {
   drawPixelTile(ctx, 1, DIRT, 40, 22, GREEN, 4);
   drawPixelTile(ctx, 2, DIRT, 40, 33);
   drawPixelTile(ctx, 3, STONE, 50, 44);
+  drawPixelTile(ctx, 4, [219, 207, 142], 25, 55);
   return canvas;
 }
 
@@ -200,6 +201,20 @@ class Renderer {
     return { vbo, ibo, count: data.indices.length };
   }
 
+  // Malla sin índices: cada cara visible = 6 vértices (x,y,z,u,v,shade)
+  createChunkMesh(vertices) {
+    const gl = this.gl;
+    const vbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+    return { vbo, ibo: null, count: vertices.length / 6 };
+  }
+
+  deleteMesh(mesh) {
+    this.gl.deleteBuffer(mesh.vbo);
+    if (mesh.ibo) this.gl.deleteBuffer(mesh.ibo);
+  }
+
   resize() {
     const dpr = window.devicePixelRatio || 1;
     const w = Math.floor(this.canvas.clientWidth * dpr);
@@ -226,16 +241,21 @@ class Renderer {
     gl.vertexAttribPointer(L.aUV, 2, gl.FLOAT, false, stride, 12);
     gl.enableVertexAttribArray(L.aShade);
     gl.vertexAttribPointer(L.aShade, 1, gl.FLOAT, false, stride, 20);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ibo);
-    gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
+    if (mesh.ibo) {
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ibo);
+      gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
+    } else {
+      gl.drawArrays(gl.TRIANGLES, 0, mesh.count);
+    }
   }
 
-  render(view) {
+  render(view, meshes) {
     const gl = this.gl;
     this.resize();
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const aspect = this.canvas.width / this.canvas.height;
-    const proj = Mat4.perspective(Math.PI / 3, aspect, 0.1, 100);
-    this.drawMesh(this.cube, Mat4.multiply(proj, view));
+    const proj = Mat4.perspective(Math.PI / 3, aspect, 0.1, 300);
+    const mvp = Mat4.multiply(proj, view);
+    for (const m of (meshes || [this.cube])) this.drawMesh(m, mvp);
   }
 }
