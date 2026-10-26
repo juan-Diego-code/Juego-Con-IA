@@ -70,6 +70,16 @@ void main() {
   gl_FragColor = vec4(color.rgb * vShade, 1.0);
 }`;
 
+// Shaders sencillos para dibujar el contorno negro del bloque apuntado
+const LINE_VS = `
+attribute vec3 aPos;
+uniform mat4 uMVP;
+uniform vec3 uOffset;
+void main() { gl_Position = uMVP * vec4(aPos + uOffset, 1.0); }`;
+const LINE_FS = `
+precision mediump float;
+void main() { gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); }`;
+
 // ---------- Atlas de texturas creado con Canvas (sin imágenes externas) ----------
 const TILE = 16;
 const ATLAS_TILES = 5; // 0 césped(arriba), 1 césped(lado), 2 tierra, 3 piedra, 4 arena
@@ -152,6 +162,7 @@ class Renderer {
     };
     this.atlas = this.createTexture(createAtlasCanvas());
     this.cube = this.createMesh(buildCubeMesh());
+    this.initOutline();
 
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE); // no dibuja las caras traseras
@@ -215,10 +226,51 @@ class Renderer {
     if (mesh.ibo) this.gl.deleteBuffer(mesh.ibo);
   }
 
+  // Contorno: 12 aristas de un cubo un poco más grande que el bloque
+  initOutline() {
+    const gl = this.gl, a = -0.003, b = 1.003, v = [];
+    for (let i = 0; i < 8; i++) {
+      for (let j = i + 1; j < 8; j++) {
+        const diff = i ^ j;
+        if (diff === 1 || diff === 2 || diff === 4) { // solo vértices que difieren en un eje
+          for (const k of [i, j]) v.push((k & 1) ? b : a, (k & 2) ? b : a, (k & 4) ? b : a);
+        }
+      }
+    }
+    this.lineProgram = this.createProgram(LINE_VS, LINE_FS);
+    this.lineLoc = {
+      aPos: gl.getAttribLocation(this.lineProgram, "aPos"),
+      uMVP: gl.getUniformLocation(this.lineProgram, "uMVP"),
+      uOffset: gl.getUniformLocation(this.lineProgram, "uOffset")
+    };
+    this.lineBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.lineBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
+    this.lineCount = v.length / 3;
+  }
+
+  drawOutline(mvp, x, y, z) {
+    const gl = this.gl, L = this.lineLoc;
+    gl.disableVertexAttribArray(this.loc.aPos);
+    gl.disableVertexAttribArray(this.loc.aUV);
+    gl.disableVertexAttribArray(this.loc.aShade);
+    gl.useProgram(this.lineProgram);
+    gl.uniformMatrix4fv(L.uMVP, false, mvp);
+    gl.uniform3f(L.uOffset, x, y, z);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.lineBuffer);
+    gl.enableVertexAttribArray(L.aPos);
+    gl.vertexAttribPointer(L.aPos, 3, gl.FLOAT, false, 12, 0);
+    gl.drawArrays(gl.LINES, 0, this.lineCount);
+    gl.disableVertexAttribArray(L.aPos);
+  }
+
   resize() {
     const dpr = window.devicePixelRatio || 1;
-    const w = Math.floor(this.canvas.clientWidth * dpr);
-    const h = Math.floor(this.canvas.clientHeight * dpr);
+    // Tamaño tomado de la ventana y fijado también desde JS, para no depender solo del CSS
+    this.canvas.style.width = "100vw";
+    this.canvas.style.height = "100vh";
+    const w = Math.max(1, Math.floor(window.innerWidth * dpr));
+    const h = Math.max(1, Math.floor(window.innerHeight * dpr));
     if (this.canvas.width !== w || this.canvas.height !== h) {
       this.canvas.width = w;
       this.canvas.height = h;
@@ -249,7 +301,7 @@ class Renderer {
     }
   }
 
-  render(view, meshes) {
+  render(view, meshes, target) {
     const gl = this.gl;
     this.resize();
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -257,5 +309,6 @@ class Renderer {
     const proj = Mat4.perspective(Math.PI / 3, aspect, 0.1, 300);
     const mvp = Mat4.multiply(proj, view);
     for (const m of (meshes || [this.cube])) this.drawMesh(m, mvp);
+    if (target) this.drawOutline(mvp, target.x, target.y, target.z);
   }
 }

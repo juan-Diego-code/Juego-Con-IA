@@ -112,11 +112,23 @@ class Player {
     this.wasOnGround = this.onGround;
   }
 
+  get lookDir() {
+    const cp = Math.cos(this.pitch);
+    return [-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp];
+  }
+
+  // ¿El bloque (bx,by,bz) se solaparía con el cuerpo del jugador?
+  intersectsBlock(bx, by, bz) {
+    const p = this.pos;
+    return p[0] + PLAYER_RADIUS > bx && p[0] - PLAYER_RADIUS < bx + 1 &&
+           p[1] + PLAYER_HEIGHT > by && p[1] < by + 1 &&
+           p[2] + PLAYER_RADIUS > bz && p[2] - PLAYER_RADIUS < bz + 1;
+  }
+
   get eye() { return [this.pos[0], this.pos[1] + EYE_HEIGHT, this.pos[2]]; }
 
   getViewMatrix() {
-    const cp = Math.cos(this.pitch), eye = this.eye;
-    const dir = [-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp];
+    const eye = this.eye, dir = this.lookDir;
     return Mat4.lookAt(eye, [eye[0] + dir[0], eye[1] + dir[1], eye[2] + dir[2]], [0, 1, 0]);
   }
 }

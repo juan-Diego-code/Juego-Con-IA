@@ -3,21 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Minecraft Web - Etapa 3</title>
-  <link rel="stylesheet" href="./assets/style.css">
+  <title>Minecraft Web - Etapa 5</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
-  <div id="hud">Etapa 3 · FPS: <span id="fps">0</span></div>
+  <div id="hud">Etapa 5 · FPS: <span id="fps">0</span></div>
   <div id="crosshair">+</div>
-  <div id="overlay">Haz clic para jugar<br><small>WASD mover · Espacio saltar · F volar/caminar · Esc salir</small></div>
+  <div id="blockLabel" hidden></div>
+  <div id="hotbar"></div>
+  <div id="inventory" hidden>
+    <div id="invPanel">
+      <h2>Inventario</h2>
+      <div id="invGrid"></div>
+      <div id="invHotbar"></div>
+      <small>Clic: coger / soltar · E o Esc: cerrar</small>
+    </div>
+  </div>
+  <div id="cursorItem" hidden></div>
+  <div id="overlay">Haz clic para jugar<br><small>WASD mover · Espacio saltar · Clic izq. destruir · Clic der. colocar · 1-9 o rueda: bloque · E inventario · F volar · Esc salir</small></div>
   <div id="error" hidden></div>
 
   <!-- Scripts clásicos (no módulos) para que funcione con doble clic en Windows -->
-  <script src="./assets/js/renderer.js"></script>
-  <script src="./assets/js/blocks.js"></script>
-  <script src="./assets/js/world.js"></script>
-  <script src="./assets/js/player.js"></script>
-  <script src="./assets/js/main.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/blocks.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/inventory.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>

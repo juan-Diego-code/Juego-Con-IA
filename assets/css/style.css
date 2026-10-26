@@ -62,3 +62,97 @@ html, body {
 }
 #overlay[hidden] { display: none; }
 #overlay small { font-size: 16px; margin-top: 12px; }
+
+#blockLabel {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  font-size: 16px;
+  pointer-events: none;
+}
+
+/* La pantalla de juego cubre toda la ventana */
+#gameCanvas { position: fixed; top: 0; left: 0; }
+
+/* ---------- Barra de acceso rápido e inventario ---------- */
+.slot {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  box-sizing: border-box;
+  background: #3b3b3b;
+  border: 3px solid;
+  border-color: #1b1b1b #6b6b6b #6b6b6b #1b1b1b;
+}
+.slot canvas {
+  position: absolute;
+  inset: 4px;
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+}
+.slot span {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  text-shadow: 1px 1px 0 #000;
+}
+.slot.selected { border-color: #fff; background: #555; }
+
+#hotbar {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: rgba(0, 0, 0, 0.55);
+}
+#blockLabel { bottom: 78px; }
+
+#inventory {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+}
+#inventory[hidden] { display: none; }
+#invPanel {
+  padding: 16px 20px;
+  color: #fff;
+  background: #8b8b8b;
+  border: 4px solid;
+  border-color: #dbdbdb #373737 #373737 #dbdbdb;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+}
+#invPanel h2 { margin: 0 0 10px; color: #3a3a3a; font-size: 20px; }
+#invPanel small { display: block; margin-top: 10px; color: #333; }
+#invGrid, #invHotbar { display: grid; grid-template-columns: repeat(9, 48px); gap: 2px; }
+#invHotbar { margin-top: 14px; }
+#invPanel .slot { cursor: pointer; }
+#invPanel .slot:hover { background: #666; }
+
+#cursorItem {
+  position: fixed;
+  z-index: 20;
+  width: 48px;
+  height: 48px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+#cursorItem[hidden] { display: none; }
+#cursorItem canvas { position: absolute; inset: 4px; width: 40px; height: 40px; image-rendering: pixelated; }
+#cursorItem span {
+  position: absolute; right: 0; bottom: 0; color: #fff; font-weight: bold; text-shadow: 1px 1px 0 #000;
+}

@@ -80,6 +80,47 @@ class World {
     return chunk[(lx * WORLD_HEIGHT + y) * CHUNK_SIZE + lz];
   }
 
+  // Cambia un bloque. Devuelve la lista de chunks [cx,cz] que hay que reconstruir (o null si no es válido)
+  setBlock(x, y, z, id) {
+    const limit = this.size * CHUNK_SIZE;
+    if (y < 0 || y >= WORLD_HEIGHT || x < 0 || z < 0 || x >= limit || z >= limit) return null;
+    const cx = Math.floor(x / CHUNK_SIZE), cz = Math.floor(z / CHUNK_SIZE);
+    const lx = x - cx * CHUNK_SIZE, lz = z - cz * CHUNK_SIZE;
+    this.chunks.get(this.key(cx, cz))[(lx * WORLD_HEIGHT + y) * CHUNK_SIZE + lz] = id;
+    const dirty = [[cx, cz]];
+    // Si el bloque está en el borde del chunk, el vecino también cambia sus caras visibles
+    if (lx === 0 && cx > 0) dirty.push([cx - 1, cz]);
+    if (lx === CHUNK_SIZE - 1 && cx < this.size - 1) dirty.push([cx + 1, cz]);
+    if (lz === 0 && cz > 0) dirty.push([cx, cz - 1]);
+    if (lz === CHUNK_SIZE - 1 && cz < this.size - 1) dirty.push([cx, cz + 1]);
+    return dirty;
+  }
+
+  // Rayo que atraviesa la cuadrícula de bloques (algoritmo DDA de Amanatides y Woo).
+  // Devuelve {x,y,z,normal:[nx,ny,nz]} del primer bloque sólido, o null.
+  raycast(origin, dir, maxDist) {
+    const cell = [Math.floor(origin[0]), Math.floor(origin[1]), Math.floor(origin[2])];
+    const step = [], tDelta = [], tMax = [];
+    for (let i = 0; i < 3; i++) {
+      step[i] = dir[i] > 0 ? 1 : -1;
+      tDelta[i] = dir[i] === 0 ? Infinity : Math.abs(1 / dir[i]);
+      const next = dir[i] > 0 ? cell[i] + 1 - origin[i] : origin[i] - cell[i];
+      tMax[i] = dir[i] === 0 ? Infinity : next * tDelta[i];
+    }
+    let normal = [0, 0, 0], t = 0;
+    while (t <= maxDist) {
+      if (Blocks.isSolid(this.getBlock(cell[0], cell[1], cell[2])))
+        return { x: cell[0], y: cell[1], z: cell[2], normal };
+      const axis = tMax[0] < tMax[1] ? (tMax[0] < tMax[2] ? 0 : 2) : (tMax[1] < tMax[2] ? 1 : 2);
+      t = tMax[axis];
+      tMax[axis] += tDelta[axis];
+      cell[axis] += step[axis];
+      normal = [0, 0, 0];
+      normal[axis] = -step[axis]; // cara por la que entró el rayo
+    }
+    return null;
+  }
+
   // Para colisiones: fuera del mundo (horizontal) cuenta como muro
   isSolidAt(x, y, z) {
     const limit = this.size * CHUNK_SIZE;
