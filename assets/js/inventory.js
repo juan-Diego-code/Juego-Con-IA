@@ -31,6 +31,24 @@ class Inventory {
     return count;
   }
 
+  // Datos para guardar la partida
+  toData() {
+    return { slots: this.slots.map(s => (s ? { id: s.id, count: s.count } : null)), selected: this.selected };
+  }
+
+  // Carga datos guardados (o vacía el inventario si d es null); valida cada hueco
+  loadData(d) {
+    this.slots = new Array(INVENTORY_SIZE).fill(null);
+    this.selected = 0;
+    if (!d || !Array.isArray(d.slots)) return;
+    for (let i = 0; i < INVENTORY_SIZE; i++) {
+      const e = d.slots[i];
+      if (e && Blocks.data[e.id] && Number.isInteger(e.count) && e.count >= 1 && e.count <= MAX_STACK)
+        this.slots[i] = { id: e.id, count: e.count };
+    }
+    if (Number.isInteger(d.selected) && d.selected >= 0 && d.selected < HOTBAR_SIZE) this.selected = d.selected;
+  }
+
   getSelected() { return this.slots[this.selected]; }
 
   // Gasta un bloque del hueco activo. Devuelve false si estaba vacío.

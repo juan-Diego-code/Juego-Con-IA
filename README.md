@@ -1,6 +1,6 @@
 # Minecraft Web (WebGL nativo)
 
-## Estado: Etapa 6 - Árboles y mundo infinito por chunks
+## Estado: Etapa 7 - Menús y guardado
 
 ### Cómo ejecutarlo en Windows
 1. Descarga la carpeta `minecraft-web` y descomprímela si viene en ZIP.
@@ -50,3 +50,12 @@ No necesita Node.js ni instalar nada.
 - A lo lejos hay una niebla suave que oculta el borde de lo cargado.
 - Arriba a la izquierda se ven FPS y tu posición (X, Y, Z).
 - Los estilos están en `style.css`, que debe estar en la misma carpeta que `index.html`.
+
+### Etapa 7: qué comprobar
+- Al abrir `index.html` aparece el **menú principal**: Jugar, Crear mundo y Configuración.
+- **Jugar** carga el mundo guardado (o crea uno nuevo si no hay). **Crear mundo** permite escribir una semilla (la misma semilla = el mismo mundo).
+- **Esc** abre el **menú de pausa**: Continuar, Guardar mundo, Configuración y Guardar y salir al menú.
+- **Configuración**: distancia de dibujado, campo de visión, sensibilidad del ratón y mostrar/ocultar FPS. Se guarda sola.
+- El mundo se guarda en **LocalStorage**: bloques que cambiaste, posición, inventario y semilla. También hay autoguardado cada 30 s y al cerrar la pestaña.
+- Prueba: destruye bloques, pulsa Esc, "Guardar y salir al menú", cierra la pestaña, vuelve a abrir y pulsa Jugar: todo debe estar igual.
+- Archivos: ahora existe `js/storage.js`. Debes tener `index.html`, `style.css` y todos los `.js` de la carpeta `js/`.

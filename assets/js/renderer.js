@@ -196,6 +196,7 @@ class Renderer {
     this.atlas = this.createTexture(createAtlasCanvas());
     this.cube = this.createMesh(buildCubeMesh());
     this.eye = [0, 0, 0];
+    this.fov = Math.PI / 3; // campo de visión (se cambia en Configuración)
     this.fogStart = 1e5; // sin niebla por defecto
     this.fogEnd = 1e5 + 1;
     this.initOutline();
@@ -347,7 +348,7 @@ class Renderer {
     this.resize();
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const aspect = this.canvas.width / this.canvas.height;
-    const proj = Mat4.perspective(Math.PI / 3, aspect, 0.1, 300);
+    const proj = Mat4.perspective(this.fov, aspect, 0.1, 300);
     const mvp = Mat4.multiply(proj, view);
     for (const m of (meshes || [this.cube])) this.drawMesh(m, mvp);
     if (target) this.drawOutline(mvp, target.x, target.y, target.z);

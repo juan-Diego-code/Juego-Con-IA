@@ -42,6 +42,19 @@ class Player {
     });
   }
 
+  // Coloca al jugador en una partida nueva o cargada
+  reset(world, x, y, z, yaw, pitch, flying) {
+    this.world = world;
+    this.pos = [x, y, z];
+    this.vy = 0;
+    this.onGround = false;
+    this.wasOnGround = false;
+    this.yaw = yaw || 0;
+    this.pitch = pitch || 0;
+    this.flying = !!flying;
+    this.keys = {};
+  }
+
   // ¿La caja del jugador en (x,y,z) toca algún bloque sólido?
   collides(x, y, z) {
     const x0 = Math.floor(x - PLAYER_RADIUS), x1 = Math.floor(x + PLAYER_RADIUS);

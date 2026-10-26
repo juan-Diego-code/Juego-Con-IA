@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Minecraft Web - Etapa 6</title>
+  <title>Minecraft Web</title>
   <link rel="stylesheet" href="./assets/css/style.css">
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
-  <div id="hud">Etapa 6 · FPS: <span id="fps">0</span> · <span id="pos"></span></div>
+  <div id="hud">FPS: <span id="fps">0</span> · <span id="pos"></span></div>
   <div id="crosshair">+</div>
   <div id="blockLabel" hidden></div>
   <div id="hotbar"></div>
@@ -21,7 +21,50 @@
     </div>
   </div>
   <div id="cursorItem" hidden></div>
-  <div id="overlay">Haz clic para jugar<br><small>WASD mover · Espacio saltar · Clic izq. destruir · Clic der. colocar · 1-9 o rueda: bloque · E inventario · F volar · Esc salir</small></div>
+  <!-- Menú principal -->
+  <div id="mainMenu" class="screen">
+    <h1>MINECRAFT WEB</h1>
+    <p class="subtitle">Proyecto de desarrollo de software · WebGL nativo</p>
+    <button id="btnPlay">Jugar</button>
+    <button id="btnCreate">Crear mundo</button>
+    <button id="btnSettings">Configuración</button>
+    <p id="saveInfo" class="info"></p>
+  </div>
+
+  <!-- Crear mundo -->
+  <div id="createMenu" class="screen" hidden>
+    <h2>Crear mundo</h2>
+    <label class="field">Semilla (opcional)
+      <input id="seedInput" type="text" maxlength="30" placeholder="Vacío = al azar">
+    </label>
+    <button id="btnCreateGo">Crear y jugar</button>
+    <button id="btnCreateBack">Volver</button>
+  </div>
+
+  <!-- Configuración -->
+  <div id="settingsMenu" class="screen" hidden>
+    <h2>Configuración</h2>
+    <label class="row">Distancia de dibujado <span id="rdValue"></span>
+      <input id="rdInput" type="range" min="2" max="8" step="1"></label>
+    <label class="row">Campo de visión <span id="fovValue"></span>
+      <input id="fovInput" type="range" min="50" max="100" step="5"></label>
+    <label class="row">Sensibilidad del ratón <span id="sensValue"></span>
+      <input id="sensInput" type="range" min="1" max="10" step="1"></label>
+    <label class="row">Mostrar FPS y posición <input id="fpsInput" type="checkbox"></label>
+    <button id="btnSettingsBack">Volver</button>
+  </div>
+
+  <!-- Pausa -->
+  <div id="pauseMenu" class="screen" hidden>
+    <h2>Juego en pausa</h2>
+    <button id="btnResume">Continuar</button>
+    <button id="btnSave">Guardar mundo</button>
+    <button id="btnPauseSettings">Configuración</button>
+    <button id="btnExit">Guardar y salir al menú</button>
+    <p class="info">WASD mover · Espacio saltar · Clic izq. destruir · Clic der. colocar<br>1-9 o rueda: bloque · E inventario · F volar</p>
+  </div>
+
+  <div id="toast" hidden></div>
   <div id="error" hidden></div>
 
   <!-- Scripts clásicos (no módulos) para que funcione con doble clic en Windows -->
@@ -30,6 +73,7 @@
   <script src="./assets/js/world.js"></script>
   <script src="./assets/js/player.js"></script>
   <script src="./assets/js/inventory.js"></script>
+  <script src="./assets/js/storage.js"></script>
   <script src="./assets/js/main.js"></script>
 </body>
 </html>

@@ -151,6 +151,23 @@ class World {
     return dirty;
   }
 
+  // Chunks modificados por el jugador (para guardar la partida)
+  exportModified() {
+    const list = [];
+    for (const k of this.modified) {
+      const cx = Math.round(k / 65536), cz = k - cx * 65536; // inverso de key()
+      list.push({ cx, cz, data: this.chunks.get(k) });
+    }
+    return list;
+  }
+
+  // Carga un chunk guardado (sustituye al generado desde la semilla)
+  importChunk(cx, cz, data) {
+    const k = this.key(cx, cz);
+    this.chunks.set(k, data);
+    this.modified.add(k);
+  }
+
   // Rayo que atraviesa la cuadrícula de bloques (algoritmo DDA de Amanatides y Woo).
   // Devuelve {x,y,z,normal:[nx,ny,nz]} del primer bloque sólido, o null.
   raycast(origin, dir, maxDist) {
