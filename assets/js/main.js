@@ -1,12 +1,15 @@
-// main.js - Punto de entrada: menús, bucle del juego y guardado (Etapa 7)
+// main.js - Punto de entrada: menús, modos de juego, minería, crafteo y bucle principal (Etapa 9)
 
 (function () {
   const $ = id => document.getElementById(id);
   const canvas = $("gameCanvas"), hud = $("hud"), fpsLabel = $("fps"), posLabel = $("pos");
-  const blockLabel = $("blockLabel"), inventoryEl = $("inventory"), toastEl = $("toast");
+  const modeLabel = $("modeLabel"), blockLabel = $("blockLabel"), toastEl = $("toast");
+  const inventoryEl = $("inventory"), creativeEl = $("creativeMenu");
+  const mineBar = $("mineBar"), mineFill = $("mineFill");
   const screens = { main: $("mainMenu"), create: $("createMenu"), settings: $("settingsMenu"), pause: $("pauseMenu") };
   const REACH = 6;            // alcance en bloques
   const AUTOSAVE_MS = 30000;  // autoguardado cada 30 s
+  const MODE_NAMES = { survival: "Supervivencia", creative: "Creativo" };
   let renderer;
 
   try {
@@ -24,8 +27,11 @@
   let state = "menu";          // "menu" (sin partida) o "playing"
   let screen = "main";         // pantalla visible: main, create, settings, pause o none (jugando)
   let settingsReturn = "main"; // a dónde vuelve el botón "Volver" de Configuración
-  let inventoryOpen = false, labelTimer = 0, toastTimer = null, lastSave = Date.now();
+  let gameMode = "survival";   // "survival" o "creative"
+  let inventoryOpen = false, openPanel = null, atTable = false;
+  let labelTimer = 0, toastTimer = null, lastSave = Date.now();
   let target = null;           // bloque que miramos
+  let leftHeld = false, mining = null, breakCooldown = 0; // minería (clic izquierdo mantenido)
 
   // Chunks dibujados
   const chunkMeshes = new Map(); // clave -> {cx, cz, mesh}
@@ -34,7 +40,9 @@
   // Jugador, inventario e interfaz: se crean una sola vez y se reinician al empezar una partida
   const player = new Player(canvas, null, 0, 0, 0);
   const inventory = new Inventory();
-  const ui = new InventoryUI(inventory, createAtlasCanvas());
+  const atlas = createAtlasCanvas();
+  const ui = new InventoryUI(inventory, atlas, recipe => craftRecipe(recipe));
+  new CreativeUI(inventory, atlas, ui);
 
   // ===== Pantallas y avisos =====
   function showScreen(name) {
@@ -55,6 +63,18 @@
     $("saveInfo").textContent = info
       ? "Mundo guardado · semilla " + info.seed + " · " + new Date(info.savedAt).toLocaleString()
       : "Todavía no hay un mundo guardado";
+  }
+
+  // ===== Modo de juego =====
+  function setMode(mode) {
+    gameMode = mode;
+    player.canFly = mode === "creative";         // solo en creativo se puede volar
+    if (!player.canFly) player.flying = false;
+    ui.showCounts = mode === "survival";         // en creativo no se muestran cantidades
+    modeLabel.textContent = MODE_NAMES[mode];
+    $("btnMode").textContent = "Modo: " + MODE_NAMES[mode];
+    leftHeld = false; mining = null; mineBar.hidden = true;
+    ui.render();
   }
 
   // ===== Configuración =====
@@ -144,6 +164,7 @@
   document.addEventListener("pointerlockerror", onLockFailed);
 
   document.addEventListener("pointerlockchange", () => {
+    leftHeld = false; mining = null; mineBar.hidden = true;
     if (state !== "playing") return;
     if (player.locked) showScreen("none");
     else if (screen === "none" && !inventoryOpen) showScreen("pause"); // Esc: menú de pausa
@@ -159,6 +180,7 @@
     if (ui.cursor) ui.returnCursor(); // el objeto que lleva el cursor vuelve a la mochila
     const ok = GameStorage.saveGame({
       seed: world.seed,
+      mode: gameMode,
       player: { x: player.pos[0], y: player.pos[1], z: player.pos[2], yaw: player.yaw, pitch: player.pitch, flying: player.flying },
       inventory: inventory.toData(),
       chunks: world.exportModified()
@@ -170,9 +192,20 @@
     return ok;
   }
 
-  function startGame(seed, saved) {
+  function closePanels() {
+    inventoryOpen = false;
+    atTable = false;
+    ui.atTable = false;
+    openPanel = null;
+    inventoryEl.hidden = true;
+    creativeEl.hidden = true;
+  }
+
+  function startGame(seed, saved, mode) {
     clearMeshes();
+    closePanels();
     world = new World(seed);
+    setMode(saved ? saved.mode : mode); // antes de colocar al jugador (define si puede volar)
     if (saved) {
       for (const c of saved.chunks) world.importChunk(c.cx, c.cz, c.data);
       inventory.loadData(saved.inventory);
@@ -185,8 +218,6 @@
     }
     ui.cursor = null;
     ui.render();
-    inventoryOpen = false;
-    inventoryEl.hidden = true;
     state = "playing";
     showScreen("none");
     updateStreaming();
@@ -204,9 +235,9 @@
     state = "menu";
     world = null;
     clearMeshes();
-    inventoryOpen = false;
-    inventoryEl.hidden = true;
+    closePanels();
     blockLabel.hidden = true;
+    mineBar.hidden = true;
     document.exitPointerLock();
     showScreen("main");
     updateSaveInfo();
@@ -219,19 +250,23 @@
       if (saved) { startGame(saved.seed, saved); return; }
       toast("El guardado estaba dañado: se creó un mundo nuevo");
     }
-    startGame(GameStorage.parseSeed(""), null);
+    startGame(GameStorage.parseSeed(""), null, "survival");
   });
   $("btnCreate").addEventListener("click", () => { $("seedInput").value = ""; showScreen("create"); });
   $("btnCreateBack").addEventListener("click", () => showScreen("main"));
   $("btnCreateGo").addEventListener("click", () => {
     if (GameStorage.getSaveInfo() && !confirm("Ya existe un mundo guardado. ¿Quieres reemplazarlo por uno nuevo?")) return;
     GameStorage.deleteGame();
-    startGame(GameStorage.parseSeed($("seedInput").value), null);
+    startGame(GameStorage.parseSeed($("seedInput").value), null, $("modeSelect").value === "creative" ? "creative" : "survival");
   });
   $("btnSettings").addEventListener("click", () => { settingsReturn = "main"; syncSettingsUI(); showScreen("settings"); });
   $("btnPauseSettings").addEventListener("click", () => { settingsReturn = "pause"; syncSettingsUI(); showScreen("settings"); });
   $("btnSettingsBack").addEventListener("click", () => showScreen(settingsReturn));
   $("btnResume").addEventListener("click", requestLock);
+  $("btnMode").addEventListener("click", () => {
+    setMode(gameMode === "survival" ? "creative" : "survival");
+    toast("Modo " + MODE_NAMES[gameMode]);
+  });
   $("btnSave").addEventListener("click", () => saveGame(false));
   $("btnExit").addEventListener("click", goToMainMenu);
 
@@ -239,10 +274,10 @@
   window.addEventListener("beforeunload", () => saveGame(true));
   document.addEventListener("visibilitychange", () => { if (document.hidden) saveGame(true); });
 
-  // ===== Inventario y barra de acceso rápido =====
+  // ===== Inventario, menú creativo y crafteo =====
   function showSelectedName() {
     const s = inventory.getSelected();
-    blockLabel.textContent = s ? Blocks.data[s.id].name : "";
+    blockLabel.textContent = s ? Items.name(s.id) : "";
     blockLabel.hidden = !s;
     labelTimer = 2; // se oculta a los 2 segundos
   }
@@ -253,22 +288,39 @@
     showSelectedName();
   }
 
-  function toggleInventory() {
-    inventoryOpen = !inventoryOpen;
-    inventoryEl.hidden = !inventoryOpen;
-    if (inventoryOpen) {
-      document.exitPointerLock();
-    } else {
-      ui.returnCursor();
-      showSelectedName();
-      requestLock();
-    }
+  // table = true: se abre desde una mesa de crafteo (siempre muestra el inventario con recetas)
+  function openInventory(table) {
+    atTable = !!table;
+    ui.atTable = atTable;
+    openPanel = (gameMode === "creative" && !table) ? creativeEl : inventoryEl;
+    $("invTitle").textContent = atTable ? "Mesa de crafteo" : "Inventario";
+    ui.render();
+    openPanel.hidden = false;
+    inventoryOpen = true;
+    document.exitPointerLock();
+  }
+
+  function closeInventory() {
+    closePanels();
+    ui.returnCursor();
+    showSelectedName();
+    requestLock();
+  }
+
+  function toggleInventory() { if (inventoryOpen) closeInventory(); else openInventory(false); }
+
+  function craftRecipe(recipe) {
+    const result = Crafting.craft(inventory, recipe, atTable);
+    if (result === "ok") { ui.render(); showSelectedName(); }
+    else if (result === "table") toast("Necesitas una mesa de crafteo");
+    else if (result === "missing") toast("Faltan materiales");
+    else if (result === "full") toast("Inventario lleno");
   }
 
   document.addEventListener("keydown", e => {
     if (state !== "playing") return;
     if (e.code === "KeyE" && (player.locked || inventoryOpen)) { toggleInventory(); return; }
-    if (e.code === "Escape" && inventoryOpen) { toggleInventory(); return; }
+    if (e.code === "Escape" && inventoryOpen) { closeInventory(); return; }
     if (!player.locked) return;
     const n = parseInt(e.key, 10);
     if (n >= 1 && n <= 9) selectSlot(n - 1);
@@ -276,37 +328,78 @@
   document.addEventListener("wheel", e => {
     if (state === "playing" && player.locked) selectSlot(inventory.selected + (e.deltaY > 0 ? 1 : -1));
   });
+  creativeEl.addEventListener("contextmenu", e => e.preventDefault());
+  inventoryEl.addEventListener("contextmenu", e => e.preventDefault());
+  canvas.addEventListener("contextmenu", e => e.preventDefault());
 
-  // ===== Clics: izquierdo destruye (y recoge), derecho coloca (y gasta) =====
+  // ===== Romper y colocar bloques =====
   function applyChange(x, y, z, id) {
     const dirty = world.setBlock(x, y, z, id);
     if (!dirty) return;
     for (const [cx, cz] of dirty) rebuildChunk(cx, cz);
   }
 
-  document.addEventListener("mousedown", e => {
-    if (state !== "playing" || !player.locked || !target) return;
-    if (e.button === 0) {
-      if (target.y === 0) return; // y=0 es el fondo del mundo
-      const id = world.getBlock(target.x, target.y, target.z);
-      applyChange(target.x, target.y, target.z, Blocks.AIR);
-      if (inventory.add(id) > 0) toast("Inventario lleno"); // recoger el bloque destruido
-      ui.render();
-    } else if (e.button === 2) {
-      const item = inventory.getSelected();
-      if (!item) return; // hueco vacío
-      const n = target.normal;
-      if (n[0] === 0 && n[1] === 0 && n[2] === 0) return;
-      const bx = target.x + n[0], by = target.y + n[1], bz = target.z + n[2];
-      if (Blocks.isSolid(world.getBlock(bx, by, bz))) return;
-      if (player.intersectsBlock(bx, by, bz)) return; // no colocar dentro del jugador
-      applyChange(bx, by, bz, item.id);
-      inventory.consumeSelected();
+  // Rompe el bloque apuntado. En supervivencia se recoge; en creativo desaparece sin más.
+  function breakBlock(t) {
+    if (t.y === 0) return false; // y=0 es el fondo del mundo
+    const id = world.getBlock(t.x, t.y, t.z);
+    if (id === Blocks.AIR) return false;
+    applyChange(t.x, t.y, t.z, Blocks.AIR);
+    if (gameMode === "survival") {
+      if (inventory.add(id) > 0) toast("Inventario lleno");
       ui.render();
     }
+    return true;
+  }
+
+  function placeBlock(t) {
+    const tid = world.getBlock(t.x, t.y, t.z);
+    // Clic derecho sobre una mesa de crafteo la abre (con Shift se coloca un bloque a su lado)
+    if (tid === Blocks.CRAFTING_TABLE && !player.keys.ShiftLeft) { openInventory(true); return; }
+    const item = inventory.getSelected();
+    if (!item || !Items.isBlock(item.id)) return; // hueco vacío o herramienta
+    const n = t.normal;
+    if (n[0] === 0 && n[1] === 0 && n[2] === 0) return;
+    const bx = t.x + n[0], by = t.y + n[1], bz = t.z + n[2];
+    if (Blocks.isSolid(world.getBlock(bx, by, bz))) return;
+    if (player.intersectsBlock(bx, by, bz)) return; // no colocar dentro del jugador
+    applyChange(bx, by, bz, item.id);
+    if (gameMode === "survival") { inventory.consumeSelected(); ui.render(); } // en creativo es infinito
+  }
+
+  document.addEventListener("mousedown", e => {
+    if (state !== "playing" || !player.locked) return;
+    if (e.button === 0) {
+      leftHeld = true;
+      if (gameMode === "creative" && target) { breakBlock(target); breakCooldown = 0.25; }
+    } else if (e.button === 2 && target) {
+      placeBlock(target);
+    }
   });
-  canvas.addEventListener("contextmenu", e => e.preventDefault());
-  inventoryEl.addEventListener("contextmenu", e => e.preventDefault());
+  document.addEventListener("mouseup", e => {
+    if (e.button === 0) { leftHeld = false; mining = null; mineBar.hidden = true; }
+  });
+
+  // Minería mantenida. Creativo: un bloque cada 0.25 s. Supervivencia: hay que mantener el clic
+  // el tiempo que tarde ese bloque con la herramienta que llevas (ver Items.breakTime).
+  function updateMining(dt) {
+    if (!leftHeld || !target) { mining = null; mineBar.hidden = true; return; }
+    if (gameMode === "creative") {
+      breakCooldown -= dt;
+      if (breakCooldown <= 0) { breakBlock(target); breakCooldown = 0.25; }
+      return;
+    }
+    if (target.y === 0) { mining = null; mineBar.hidden = true; return; }
+    if (!mining || mining.x !== target.x || mining.y !== target.y || mining.z !== target.z)
+      mining = { x: target.x, y: target.y, z: target.z, t: 0 };
+    const id = world.getBlock(target.x, target.y, target.z);
+    if (id === Blocks.AIR) { mining = null; return; }
+    const held = inventory.getSelected();
+    mining.t += dt / Items.breakTime(id, held ? held.id : 0);
+    mineBar.hidden = false;
+    mineFill.style.width = Math.min(100, mining.t * 100) + "%";
+    if (mining.t >= 1) { breakBlock(target); mining = null; mineBar.hidden = true; }
+  }
 
   // ===== Bucle principal =====
   let last = performance.now(), frames = 0, fpsTimer = 0;
@@ -323,6 +416,7 @@
         meshListDirty = false;
       }
       target = player.locked ? world.raycast(player.eye, player.lookDir, REACH) : null;
+      updateMining(dt);
       renderer.render(player.getViewMatrix(), meshList, target, player.eye);
 
       if (labelTimer > 0) { labelTimer -= dt; if (labelTimer <= 0) blockLabel.hidden = true; }
@@ -347,6 +441,7 @@
   applySettings();
   syncSettingsUI();
   updateSaveInfo();
+  modeLabel.textContent = MODE_NAMES[gameMode];
   showScreen("main");
   requestAnimationFrame(loop);
 })();

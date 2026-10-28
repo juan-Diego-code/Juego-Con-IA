@@ -23,18 +23,62 @@ librerías) y todas las texturas se dibujan con código (Canvas), sin imágenes 
 | Destruir bloque | Clic izquierdo |
 | Colocar bloque | Clic derecho |
 | Elegir bloque de la barra | 1–9 o rueda del ratón |
-| Inventario | E |
-| Volar / caminar (modo prueba) | F (Espacio sube, Shift baja) |
-| Pausa y menú | Esc |
+| Inventario (supervivencia) o menú de bloques (creativo) | E |
+| Mantener para romper (supervivencia) | Clic izquierdo mantenido |
+| Abrir una mesa de crafteo | Clic derecho sobre ella (Shift = colocar un bloque a su lado) |
+| Volar / dejar de volar (solo creativo) | F o doble toque de Espacio (Espacio sube, Shift baja) |
+| Pausa, guardar y cambiar de modo | Esc |
+
+## Modos de juego
+
+El modo se elige en **Crear mundo**, y también se puede cambiar en el menú de pausa (Esc → «Modo»).
+
+| | Supervivencia | Creativo |
+|---|---|---|
+| Romper bloques | Hay que **mantener** el clic; tarda según el bloque y la herramienta | Instantáneo (un bloque cada 0.25 s si mantienes) |
+| Bloques recogidos | Van al inventario | No se recogen |
+| Colocar bloques | Gasta uno del inventario | Infinito |
+| Volar | No | Sí (F o doble Espacio) |
+| Tecla E | Inventario con crafteo | Menú con **todos los bloques y objetos** |
+
+### Menú creativo
+En modo creativo, **E** abre una paleta con todos los bloques y objetos del juego. Clic en un objeto lo
+pone en el hueco activo de la barra (o lo selecciona si ya está en ella). Clic en un hueco de la barra lo
+elige y clic derecho lo vacía.
+
+## Crafteo
+
+En supervivencia, **E** abre el inventario con la lista de **Crafteo** a la derecha. Las recetas en verde se
+pueden hacer; en rojo se marca lo que falta; las que llevan la etiqueta «Mesa» necesitan una **mesa de
+crafteo** (clic derecho sobre ella). Un clic en una receta gasta los materiales y da el resultado.
+
+| Resultado | Materiales | Dónde |
+|---|---|---|
+| 4 Tablones | 1 Madera | Mano |
+| 4 Palos | 2 Tablones | Mano |
+| Mesa de crafteo | 4 Tablones | Mano |
+| 4 Ladrillos de piedra | 4 Piedra | Mano |
+| Arenisca | 4 Arena | Mano |
+| Pico / Hacha de madera | 3 Tablones + 2 Palos | Mesa |
+| Pala de madera | 1 Tablón + 2 Palos | Mesa |
+| Espada de madera | 2 Tablones + 1 Palo | Mesa |
+| Pico / Hacha de piedra | 3 Piedra + 2 Palos | Mesa |
+| Pala de piedra | 1 Piedra + 2 Palos | Mesa |
+| Espada de piedra | 2 Piedra + 1 Palo | Mesa |
+
+**Las herramientas sirven:** cada bloque tiene una dureza y una herramienta ideal. Con la herramienta
+correcta se rompe 2 veces más rápido (madera) o 4 veces más rápido (piedra). Por ejemplo, la piedra tarda
+3 s a mano, 1.5 s con pico de madera y 0.75 s con pico de piedra. Las herramientas no se apilan.
 
 ## Características
 
-- Mundo 3D en primera persona, **infinito**, generado con ruido procedural: césped, tierra, piedra, arena, madera y hojas.
+- Mundo 3D en primera persona, **infinito**, generado con ruido procedural: césped, tierra, piedra, arena, madera, hojas, tablones, ladrillos de piedra, arenisca y mesa de crafteo.
 - **Árboles** distribuidos por el terreno, con tronco y copa.
 - Movimiento con **gravedad, salto y colisiones**.
 - **Destruir y colocar bloques**; no se puede colocar un bloque dentro del jugador.
 - **Inventario** de 36 huecos y barra de acceso rápido de 9; los bloques destruidos se recogen (pilas de hasta 64).
-- **Menú principal** (Jugar, Crear mundo con semilla, Configuración), **menú de pausa** y contador de FPS opcional.
+- **Modos Supervivencia y Creativo**, **crafteo** con recetas y mesa, y herramientas que aceleran la minería.
+- **Menú principal** (Jugar, Crear mundo con semilla y modo, Configuración), **menú de pausa** y contador de FPS opcional.
 - **Guardado en LocalStorage** (manual, automático cada 30 s y al cerrar la pestaña).
 - Iluminación simple por cara, niebla y cielo.
 
@@ -50,8 +94,10 @@ minecraft-web/
     ├── renderer.js   WebGL: shaders, texturas, matrices, dibujo y recorte de pantalla
     ├── world.js      Terreno, árboles, chunks, rayos y mallas
     ├── player.js     Cámara, gravedad, salto y colisiones
-    ├── blocks.js     Tipos de bloque y sus texturas
-    ├── inventory.js  Inventario y barra de acceso rápido
+    ├── blocks.js     Tipos de bloque, su dureza y su herramienta ideal
+    ├── items.js      Palo y herramientas (iconos dibujados con código) y tiempos de rotura
+    ├── inventory.js  Inventario, barra de acceso rápido y menú creativo
+    ├── crafting.js   Recetas y lista de crafteo
     └── storage.js    Guardado/carga con LocalStorage y configuración
 ```
 
@@ -80,18 +126,21 @@ minecraft-web/
 - Comparación del mallador optimizado contra la versión anterior: mismas caras, incluidos los bordes de chunk.
 - Guardar → cargar: los bloques, el inventario y la posición quedan idénticos; guardados dañados no rompen el juego.
 - Descargar y regenerar chunks lejanos da exactamente el mismo mundo.
+- Crafteo: materiales gastados correctamente, mesa requerida para las herramientas, y si el resultado no cabe en el inventario no se pierde nada.
+- Flujo completo simulado: crear mundo creativo, usar el menú de bloques, construir, cambiar a supervivencia, minar, craftear, usar la mesa, guardar y volver a cargar.
 - Comprobación del recorte de pantalla (frustum) y del flujo completo de menús.
 
 ## Limitaciones conocidas
 
-- Las hojas son opacas y no hay agua, cuevas ni enemigos.
+- Las hojas son opacas y no hay agua, cuevas, enemigos, vida ni hambre; las herramientas no tienen durabilidad.
+- El crafteo se hace desde una lista de recetas (no con una cuadrícula de colocación de ingredientes).
 - LocalStorage tiene un límite (~5 MB): si se llena, el juego avisa al guardar.
 - Una distancia de dibujado alta (7–8) puede bajar los FPS en equipos modestos.
 
 ## Ideas para mejorar
 
-Oclusión ambiental (sombras suaves en las esquinas), ciclo de día y noche, agua, cuevas, herramientas
-con durabilidad, crafteo, sonidos con Web Audio y carga de chunks en un Web Worker.
+Oclusión ambiental (sombras suaves en las esquinas), ciclo de día y noche, agua, cuevas, vida y hambre,
+durabilidad de herramientas, hornos, crafteo con cuadrícula, sonidos con Web Audio y carga de chunks en un Web Worker.
 
 ## Solución de problemas
 

@@ -88,7 +88,8 @@ void main() { gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); }`;
 
 // ---------- Atlas de texturas creado con Canvas (sin imágenes externas) ----------
 const TILE = 16;
-const ATLAS_TILES = 8; // 0 césped(arriba), 1 césped(lado), 2 tierra, 3 piedra, 4 arena, 5 madera(lado), 6 madera(arriba), 7 hojas
+const ATLAS_TILES = 13; // 0 césped(arriba), 1 césped(lado), 2 tierra, 3 piedra, 4 arena, 5 madera(lado), 6 madera(arriba), 7 hojas,
+                        // 8 tablones, 9 ladrillos de piedra, 10 arenisca, 11 mesa(arriba), 12 mesa(lado)
 
 function rand(seed) { // generador pseudoaleatorio sencillo
   let s = seed;
@@ -130,6 +131,63 @@ function drawWoodTop(ctx, index) {
   }
 }
 
+// Base de tablones (se reutiliza en la mesa de crafteo)
+function plankColor(x, y, r) {
+  const row = Math.floor(y / 4);
+  let c = [176, 140, 86];
+  if (y % 4 === 3) c = [130, 100, 58];                    // junta entre tablas
+  else if (x === ((row % 2) ? 3 : 11)) c = [140, 108, 64]; // unión vertical
+  const v = (r() - 0.5) * 14;
+  return c.map(k => k + v);
+}
+
+function drawPlanksTile(ctx, index) {
+  const r = rand(101);
+  for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) setPixel(ctx, index, x, y, plankColor(x, y, r));
+}
+
+function drawBricksTile(ctx, index) {
+  const r = rand(202);
+  for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+    const row = Math.floor(y / 4);
+    const mortar = (y % 4 === 3) || ((x + (row % 2) * 4) % 8 === 7);
+    const v = (r() - 0.5) * 16;
+    setPixel(ctx, index, x, y, (mortar ? [92, 92, 92] : [132, 132, 132]).map(k => k + v));
+  }
+}
+
+function drawSandstoneTile(ctx, index) {
+  const r = rand(303);
+  for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+    const band = (y === 4 || y === 11) ? [194, 180, 128] : [216, 203, 152];
+    const v = (r() - 0.5) * 14;
+    setPixel(ctx, index, x, y, band.map(k => k + v));
+  }
+}
+
+function drawTableTop(ctx, index) {
+  const r = rand(404);
+  for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+    let c = plankColor(x, y, r);
+    if (x === 0 || x === 15 || y === 0 || y === 15) c = [92, 66, 38];
+    else if (x === 5 || x === 10 || y === 5 || y === 10) c = [118, 88, 50];
+    setPixel(ctx, index, x, y, c);
+  }
+}
+
+function drawTableSide(ctx, index) {
+  const r = rand(505);
+  for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+    let c = plankColor(x, y, r);
+    if (y < 3) c = [92, 66, 38];                                  // tapa
+    else if (x >= 3 && x <= 12 && y >= 5 && y <= 12) c = [66, 48, 30]; // panel oscuro con herramientas
+    setPixel(ctx, index, x, y, c);
+  }
+  for (const [x, y, c] of [[5, 6, [205, 205, 205]], [5, 7, [205, 205, 205]], [8, 6, [176, 130, 70]],
+                            [8, 7, [176, 130, 70]], [8, 8, [176, 130, 70]], [10, 9, [205, 205, 205]]])
+    setPixel(ctx, index, x, y, c);
+}
+
 function createAtlasCanvas() {
   const canvas = document.createElement("canvas");
   canvas.width = TILE * ATLAS_TILES;
@@ -144,6 +202,11 @@ function createAtlasCanvas() {
   drawWoodSide(ctx, 5);
   drawWoodTop(ctx, 6);
   drawPixelTile(ctx, 7, [44, 112, 36], 70, 77); // hojas
+  drawPlanksTile(ctx, 8);
+  drawBricksTile(ctx, 9);
+  drawSandstoneTile(ctx, 10);
+  drawTableTop(ctx, 11);
+  drawTableSide(ctx, 12);
   return canvas;
 }
 

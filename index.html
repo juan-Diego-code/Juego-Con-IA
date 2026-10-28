@@ -5,21 +5,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Minecraft Web</title>
   <link rel="stylesheet" href="./assets/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
-  <div id="hud">FPS: <span id="fps">0</span> · <span id="pos"></span></div>
+  <div id="hud"><span id="modeLabel"></span> · FPS: <span id="fps">0</span> · <span id="pos"></span></div>
   <div id="crosshair">+</div>
   <div id="blockLabel" hidden></div>
   <div id="hotbar"></div>
+  <!-- Inventario (supervivencia y mesa de crafteo) -->
   <div id="inventory" hidden>
     <div id="invPanel">
-      <h2>Inventario</h2>
-      <div id="invGrid"></div>
-      <div id="invHotbar"></div>
-      <small>Clic: coger / soltar · E o Esc: cerrar</small>
+      <h2 id="invTitle">Inventario</h2>
+      <div id="invLayout">
+        <div id="invMain">
+          <div id="invGrid"></div>
+          <div id="invHotbar"></div>
+        </div>
+        <div id="craftPanel">
+          <h3>Crafteo</h3>
+          <div id="recipeList"></div>
+        </div>
+      </div>
+      <small>Clic: coger / soltar · Clic en una receta: craftear · E o Esc: cerrar</small>
     </div>
   </div>
+
+  <!-- Menú del modo creativo: todos los bloques y objetos -->
+  <div id="creativeMenu" hidden>
+    <div id="creativePanel">
+      <h2>Modo creativo</h2>
+      <div id="creativeName">Bloques y objetos</div>
+      <div id="creativePalette"></div>
+      <h3>Barra de acceso rápido</h3>
+      <div id="creativeHotbar"></div>
+      <small>Clic en un objeto: ponerlo en el hueco activo · Clic en un hueco: elegirlo · Clic derecho: vaciarlo · E o Esc: cerrar</small>
+    </div>
+  </div>
+
+  <div id="mineBar" hidden><div id="mineFill"></div></div>
   <div id="cursorItem" hidden></div>
   <!-- Menú principal -->
   <div id="mainMenu" class="screen">
@@ -36,6 +60,12 @@
     <h2>Crear mundo</h2>
     <label class="field">Semilla (opcional)
       <input id="seedInput" type="text" maxlength="30" placeholder="Vacío = al azar">
+    </label>
+    <label class="field">Modo de juego
+      <select id="modeSelect">
+        <option value="survival">Supervivencia</option>
+        <option value="creative">Creativo</option>
+      </select>
     </label>
     <button id="btnCreateGo">Crear y jugar</button>
     <button id="btnCreateBack">Volver</button>
@@ -58,10 +88,11 @@
   <div id="pauseMenu" class="screen" hidden>
     <h2>Juego en pausa</h2>
     <button id="btnResume">Continuar</button>
+    <button id="btnMode">Modo: Supervivencia</button>
     <button id="btnSave">Guardar mundo</button>
     <button id="btnPauseSettings">Configuración</button>
     <button id="btnExit">Guardar y salir al menú</button>
-    <p class="info">WASD mover · Espacio saltar · Clic izq. destruir · Clic der. colocar<br>1-9 o rueda: bloque · E inventario · F volar</p>
+    <p class="info">WASD mover · Espacio saltar · Clic izq. destruir · Clic der. colocar<br>1-9 o rueda: bloque · E inventario · Clic derecho en una mesa: craftear<br>Creativo: F o doble Espacio para volar</p>
   </div>
 
   <div id="toast" hidden></div>
@@ -70,9 +101,11 @@
   <!-- Scripts clásicos (no módulos) para que funcione con doble clic en Windows -->
   <script src="./assets/js/renderer.js"></script>
   <script src="./assets/js/blocks.js"></script>
+  <script src="./assets/js/items.js"></script>
   <script src="./assets/js/world.js"></script>
   <script src="./assets/js/player.js"></script>
   <script src="./assets/js/inventory.js"></script>
+  <script src="./assets/js/crafting.js"></script>
   <script src="./assets/js/storage.js"></script>
   <script src="./assets/js/main.js"></script>
 </body>

@@ -90,6 +90,7 @@ const GameStorage = {
       const save = {
         version: 1,
         seed: data.seed,
+        mode: data.mode,
         player: data.player,
         inventory: data.inventory,
         chunks: data.chunks.map(c => ({ cx: c.cx, cz: c.cz, d: this.toBase64(this.rleEncode(c.data)) }))
@@ -116,7 +117,7 @@ const GameStorage = {
         const data = this.rleDecode(this.fromBase64(c.d), size);
         if (Number.isInteger(c.cx) && Number.isInteger(c.cz)) chunks.push({ cx: c.cx, cz: c.cz, data });
       }
-      return { seed: o.seed | 0, player: p, inventory: o.inventory, chunks };
+      return { seed: o.seed | 0, mode: o.mode === "creative" ? "creative" : "survival", player: p, inventory: o.inventory, chunks };
     } catch (e) {
       return null;
     }

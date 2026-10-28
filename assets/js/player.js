@@ -18,6 +18,8 @@ class Player {
     this.vy = 0;
     this.onGround = false;
     this.flying = false;
+    this.canFly = false;   // solo en modo creativo
+    this.lastSpace = 0;
     this.yaw = 0;
     this.pitch = 0;
     this.keys = {};
@@ -26,7 +28,13 @@ class Player {
 
     document.addEventListener("keydown", e => {
       this.keys[e.code] = true;
-      if (e.code === "KeyF" && this.locked) { this.flying = !this.flying; this.vy = 0; }
+      if (!this.locked || !this.canFly) return;
+      if (e.code === "KeyF") this.toggleFly();
+      if (e.code === "Space" && !e.repeat) { // doble toque de Espacio = volar
+        const now = performance.now();
+        if (now - this.lastSpace < 300) this.toggleFly();
+        this.lastSpace = now;
+      }
     });
     document.addEventListener("keyup", e => { this.keys[e.code] = false; });
     document.addEventListener("pointerlockchange", () => {
@@ -42,6 +50,8 @@ class Player {
     });
   }
 
+  toggleFly() { this.flying = !this.flying; this.vy = 0; }
+
   // Coloca al jugador en una partida nueva o cargada
   reset(world, x, y, z, yaw, pitch, flying) {
     this.world = world;
@@ -51,7 +61,7 @@ class Player {
     this.wasOnGround = false;
     this.yaw = yaw || 0;
     this.pitch = pitch || 0;
-    this.flying = !!flying;
+    this.flying = !!flying && this.canFly;
     this.keys = {};
   }
 
@@ -98,6 +108,7 @@ class Player {
   update(dt) {
     if (!this.locked) return;
     dt = Math.min(dt, 0.05);
+    if (this.flying && !this.canFly) this.flying = false;
     const k = this.keys;
     const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw); // adelante
     const rx = Math.cos(this.yaw),  rz = -Math.sin(this.yaw); // derecha
