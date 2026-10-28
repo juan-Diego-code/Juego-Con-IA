@@ -151,6 +151,18 @@ class World {
     return dirty;
   }
 
+  // Libera la memoria de los chunks lejanos que el jugador no modificó
+  // (si vuelve, se regeneran idénticos desde la semilla)
+  unloadFar(pcx, pcz, keepRadius) {
+    for (const k of this.chunks.keys()) {
+      if (this.modified.has(k)) continue;
+      const cx = Math.round(k / 65536), cz = k - cx * 65536;
+      if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > keepRadius) this.chunks.delete(k);
+    }
+    this._lastKey = null; // invalida la caché del último chunk
+    this._lastChunk = null;
+  }
+
   // Chunks modificados por el jugador (para guardar la partida)
   exportModified() {
     const list = [];
@@ -220,34 +232,57 @@ class World {
   }
 
   // ----- Malla del chunk: solo caras visibles (vecino = aire) -----
+  // Optimizado: lee los bloques directamente del arreglo del chunk (y de sus 4 vecinos en los bordes)
+  // y escribe en un Float32Array que crece según haga falta.
   buildChunkMesh(cx, cz) {
-    const out = [];
-    const ox = cx * CHUNK_SIZE, oz = cz * CHUNK_SIZE;
+    const S = CHUNK_SIZE, H = WORLD_HEIGHT;
+    const ox = cx * S, oz = cz * S;
+    // Los 4 vecinos se obtienen una sola vez (se generan si aún no existen)
     const data = this.getChunk(cx, cz);
+    const nxm = this.getChunk(cx - 1, cz), nxp = this.getChunk(cx + 1, cz);
+    const nzm = this.getChunk(cx, cz - 1), nzp = this.getChunk(cx, cz + 1);
+
+    // ¿Hay un bloque sólido en (lx,y,lz) relativo a este chunk? (lx/lz pueden salirse 1 bloque)
+    const solid = (lx, y, lz) => {
+      if (y < 0) return true;      // el fondo del mundo no se ve: no se dibuja
+      if (y >= H) return false;
+      let arr = data;
+      if (lx < 0) { arr = nxm; lx += S; } else if (lx >= S) { arr = nxp; lx -= S; }
+      if (lz < 0) { arr = nzm; lz += S; } else if (lz >= S) { arr = nzp; lz -= S; }
+      return arr[(lx * H + y) * S + lz] !== Blocks.AIR;
+    };
 
     // Altura máxima con bloques: arriba de eso solo hay aire y no hace falta revisarlo
     let maxY = 0;
     for (let i = 0; i < data.length; i++)
-      if (data[i] !== Blocks.AIR) { const y = Math.floor(i / CHUNK_SIZE) % WORLD_HEIGHT; if (y > maxY) maxY = y; }
-    maxY = Math.min(maxY + 1, WORLD_HEIGHT - 1);
+      if (data[i] !== Blocks.AIR) { const y = Math.floor(i / S) % H; if (y > maxY) maxY = y; }
+    maxY = Math.min(maxY + 1, H - 1);
 
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+    let buf = new Float32Array(1 << 16), n = 0;
+    for (let lx = 0; lx < S; lx++) {
       for (let y = 0; y <= maxY; y++) {
-        for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-          const id = data[(lx * WORLD_HEIGHT + y) * CHUNK_SIZE + lz];
+        for (let lz = 0; lz < S; lz++) {
+          const id = data[(lx * H + y) * S + lz];
           if (id === Blocks.AIR) continue;
-          const x = ox + lx, z = oz + lz, info = Blocks.data[id];
-          for (const f of FACE_DEFS) {
-            if (Blocks.isSolid(this.getBlock(x + f.dir[0], y + f.dir[1], z + f.dir[2]))) continue;
+          const info = Blocks.data[id];
+          for (let fi = 0; fi < 6; fi++) {
+            const f = FACE_DEFS[fi];
+            if (solid(lx + f.dir[0], y + f.dir[1], lz + f.dir[2])) continue;
+            if (n + 36 > buf.length) { const bigger = new Float32Array(buf.length * 2); bigger.set(buf); buf = bigger; }
             const tile = info[f.tex];
-            for (const i of QUAD_ORDER) { // 2 triángulos por cara
-              const p = f.v[i], uv = UV_INSET[i];
-              out.push(x + p[0], y + p[1], z + p[2], (tile + uv[0]) / ATLAS_TILES, uv[1], f.shade);
+            for (let q = 0; q < 6; q++) { // 2 triángulos por cara
+              const i = QUAD_ORDER[q], p = f.v[i], uv = UV_INSET[i];
+              buf[n++] = ox + lx + p[0];
+              buf[n++] = y + p[1];
+              buf[n++] = oz + lz + p[2];
+              buf[n++] = (tile + uv[0]) / ATLAS_TILES;
+              buf[n++] = uv[1];
+              buf[n++] = f.shade;
             }
           }
         }
       }
     }
-    return new Float32Array(out);
+    return buf.slice(0, n);
   }
 }

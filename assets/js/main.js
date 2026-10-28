@@ -92,7 +92,8 @@
     const old = chunkMeshes.get(key);
     if (old && old.mesh) renderer.deleteMesh(old.mesh);
     const verts = world.buildChunkMesh(cx, cz);
-    chunkMeshes.set(key, { cx, cz, mesh: verts.length > 0 ? renderer.createChunkMesh(verts) : null });
+    const bounds = { x0: cx * CHUNK_SIZE, x1: (cx + 1) * CHUNK_SIZE, y0: 0, y1: WORLD_HEIGHT, z0: cz * CHUNK_SIZE, z1: (cz + 1) * CHUNK_SIZE };
+    chunkMeshes.set(key, { cx, cz, mesh: verts.length > 0 ? renderer.createChunkMesh(verts, bounds) : null });
     meshListDirty = true;
   }
 
@@ -116,6 +117,7 @@
         meshListDirty = true;
       }
     }
+    world.unloadFar(pcx, pcz, R + 3); // libera memoria de chunks lejanos sin cambios
     pending = [];
     for (let dx = -R; dx <= R; dx++)
       for (let dz = -R; dz <= R; dz++)
@@ -288,7 +290,7 @@
       if (target.y === 0) return; // y=0 es el fondo del mundo
       const id = world.getBlock(target.x, target.y, target.z);
       applyChange(target.x, target.y, target.z, Blocks.AIR);
-      inventory.add(id); // recoger el bloque destruido
+      if (inventory.add(id) > 0) toast("Inventario lleno"); // recoger el bloque destruido
       ui.render();
     } else if (e.button === 2) {
       const item = inventory.getSelected();
@@ -328,7 +330,8 @@
       fpsTimer += dt;
       if (fpsTimer >= 0.5) {
         fpsLabel.textContent = Math.round(frames / fpsTimer);
-        posLabel.textContent = "X:" + Math.floor(player.pos[0]) + " Y:" + Math.floor(player.pos[1]) + " Z:" + Math.floor(player.pos[2]);
+        posLabel.textContent = "X:" + Math.floor(player.pos[0]) + " Y:" + Math.floor(player.pos[1]) + " Z:" + Math.floor(player.pos[2]) +
+          " · Chunks: " + renderer.stats.drawn + "/" + renderer.stats.total;
         frames = 0;
         fpsTimer = 0;
       }

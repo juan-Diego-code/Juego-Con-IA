@@ -1,61 +1,101 @@
-# Minecraft Web (WebGL nativo)
+# Minecraft Web — juego de bloques 3D con WebGL
 
-## Estado: Etapa 7 - Menús y guardado
+Videojuego de exploración, construcción y supervivencia ligera inspirado en Minecraft, hecho con
+**HTML5, CSS3 y JavaScript puro**. Los gráficos 3D usan **WebGL nativo** (sin Three.js ni otras
+librerías) y todas las texturas se dibujan con código (Canvas), sin imágenes externas.
 
-### Cómo ejecutarlo en Windows
-1. Descarga la carpeta `minecraft-web` y descomprímela si viene en ZIP.
-2. Haz doble clic en `index.html` (se abre en Chrome, Edge o Firefox).
-3. Opcional: en VS Code instala "Live Server" y pulsa "Go Live".
+## Cómo ejecutarlo (Windows)
 
-No necesita Node.js ni instalar nada.
+1. Descomprime la carpeta `minecraft-web`.
+2. Haz doble clic en `index.html` (Chrome, Edge o Firefox actualizados).
+3. Pulsa **Jugar**. No necesita instalar nada ni Node.js.
 
-### Cómo comprobar que funciona
-- Ves un cubo de césped pixelado (césped arriba, tierra abajo, lados mixtos) y el cielo azul.
-- La cámara gira alrededor del cubo y el contador muestra FPS.
-- Abre la consola (F12): no debe haber errores en rojo.
-- Si aparece un mensaje rojo, tu navegador o GPU no soporta WebGL.
+> Mantén juntos `index.html`, `style.css` y la carpeta `js/`. Si el juego se ve sin formato,
+> falta `style.css` junto a `index.html`. Tras actualizar archivos, recarga con **Ctrl+F5**.
 
-### Etapa 2: qué comprobar
-- Al abrir `index.html` aparece "Haz clic para jugar". Haz clic en la pantalla.
-- Mueve el ratón para mirar; W/A/S/D para moverte; Espacio sube y Shift baja (vuelo libre temporal).
-- Ves colinas de césped, tierra, piedra y arena en las zonas bajas, con caras sombreadas.
-- Esc libera el ratón. FPS arriba a la izquierda. Consola (F12) sin errores.
-- El cubo de la etapa 1 sigue disponible: `renderer.render(view)` sin lista de mallas lo dibuja.
+## Controles
 
-### Etapa 3: qué comprobar
-- Caes al suelo al empezar y ya no atraviesas el terreno.
-- W/A/S/D caminan; Espacio salta (puedes subir bloques de 1 de alto, no de 2).
-- Chocas contra paredes de bloques y no puedes salir del mundo (los bordes son muros).
-- F activa/desactiva el vuelo (Espacio sube, Shift baja); en vuelo también hay colisiones.
-- Las etapas 1 y 2 siguen funcionando: cubo (`renderer.render(view)`) y terreno por chunks.
+| Acción | Tecla |
+|---|---|
+| Moverse | W A S D |
+| Mirar | Ratón |
+| Saltar | Espacio |
+| Destruir bloque | Clic izquierdo |
+| Colocar bloque | Clic derecho |
+| Elegir bloque de la barra | 1–9 o rueda del ratón |
+| Inventario | E |
+| Volar / caminar (modo prueba) | F (Espacio sube, Shift baja) |
+| Pausa y menú | Esc |
 
-### Etapa 4: qué comprobar
-- Al apuntar a un bloque (hasta 6 de distancia) aparece un contorno negro.
-- Clic izquierdo lo destruye; clic derecho coloca el bloque seleccionado en la cara que miras.
-- Teclas 1-4 cambian el bloque (césped, tierra, piedra, arena); el nombre aparece abajo.
-- No puedes colocar un bloque donde estás parado (haz la prueba mirando tus pies).
-- El bloque del fondo del mundo (y=0) no se puede destruir.
-- Etapas 1 a 3 siguen funcionando. Todavía no se recogen bloques: eso llega con el inventario (etapa 5).
+## Características
 
-### Etapa 5: qué comprobar
-- Empiezas con las manos vacías: destruye bloques y aparecen en la barra de abajo (se apilan hasta 64).
-- Teclas 1-9 o rueda del ratón cambian el hueco activo (borde blanco); su nombre aparece unos segundos.
-- Clic derecho coloca el bloque activo y gasta uno; con el hueco vacío no coloca nada.
-- E abre el inventario (36 huecos). Clic coge una pila, clic en otro hueco la suelta, junta o intercambia. E o Esc lo cierra.
-- Si la pantalla no ocupa toda la ventana: asegúrate de que `style.css` esté en la misma carpeta que `index.html` y recarga con Ctrl+F5.
+- Mundo 3D en primera persona, **infinito**, generado con ruido procedural: césped, tierra, piedra, arena, madera y hojas.
+- **Árboles** distribuidos por el terreno, con tronco y copa.
+- Movimiento con **gravedad, salto y colisiones**.
+- **Destruir y colocar bloques**; no se puede colocar un bloque dentro del jugador.
+- **Inventario** de 36 huecos y barra de acceso rápido de 9; los bloques destruidos se recogen (pilas de hasta 64).
+- **Menú principal** (Jugar, Crear mundo con semilla, Configuración), **menú de pausa** y contador de FPS opcional.
+- **Guardado en LocalStorage** (manual, automático cada 30 s y al cerrar la pestaña).
+- Iluminación simple por cara, niebla y cielo.
 
-### Etapa 6: qué comprobar
-- El mundo ya no tiene bordes: camina (o vuela con F) en cualquier dirección y siguen apareciendo chunks.
-- Hay árboles con tronco de madera y copa de hojas; se pueden talar y recoger.
-- A lo lejos hay una niebla suave que oculta el borde de lo cargado.
-- Arriba a la izquierda se ven FPS y tu posición (X, Y, Z).
-- Los estilos están en `style.css`, que debe estar en la misma carpeta que `index.html`.
+## Estructura del proyecto
 
-### Etapa 7: qué comprobar
-- Al abrir `index.html` aparece el **menú principal**: Jugar, Crear mundo y Configuración.
-- **Jugar** carga el mundo guardado (o crea uno nuevo si no hay). **Crear mundo** permite escribir una semilla (la misma semilla = el mismo mundo).
-- **Esc** abre el **menú de pausa**: Continuar, Guardar mundo, Configuración y Guardar y salir al menú.
-- **Configuración**: distancia de dibujado, campo de visión, sensibilidad del ratón y mostrar/ocultar FPS. Se guarda sola.
-- El mundo se guarda en **LocalStorage**: bloques que cambiaste, posición, inventario y semilla. También hay autoguardado cada 30 s y al cerrar la pestaña.
-- Prueba: destruye bloques, pulsa Esc, "Guardar y salir al menú", cierra la pestaña, vuelve a abrir y pulsa Jugar: todo debe estar igual.
-- Archivos: ahora existe `js/storage.js`. Debes tener `index.html`, `style.css` y todos los `.js` de la carpeta `js/`.
+```
+minecraft-web/
+├── index.html        Estructura de la página y los menús
+├── style.css         Estilos de menús, barra e inventario
+├── README.md
+└── js/
+    ├── main.js       Bucle del juego, menús, entrada del ratón y teclado
+    ├── renderer.js   WebGL: shaders, texturas, matrices, dibujo y recorte de pantalla
+    ├── world.js      Terreno, árboles, chunks, rayos y mallas
+    ├── player.js     Cámara, gravedad, salto y colisiones
+    ├── blocks.js     Tipos de bloque y sus texturas
+    ├── inventory.js  Inventario y barra de acceso rápido
+    └── storage.js    Guardado/carga con LocalStorage y configuración
+```
+
+## Cómo funciona
+
+- **Render WebGL**: la geometría se sube a la GPU como buffers; dos shaders pequeños dibujan cada
+  vértice (posición × matriz de cámara) y cada píxel (textura × brillo de la cara × niebla). El filtro
+  `NEAREST` da el aspecto pixelado.
+- **Chunks**: el mundo se divide en bloques de 16×48×16. Cada chunk se convierte en **una sola malla**
+  (un solo dibujo por chunk) en lugar de miles de cubos.
+- **Solo caras visibles**: al construir la malla se omite toda cara que toque otro bloque sólido.
+- **Rendimiento**: los chunks se crean y dibujan según la distancia al jugador, se reparten en el
+  tiempo (máx. 8 ms por fotograma), no se dibujan los que están fuera de la pantalla (*frustum culling*)
+  y se libera la memoria de los lejanos que no cambiaron.
+- **Árboles entre chunks**: la posición de cada árbol depende solo de sus coordenadas, así un árbol
+  en el borde de dos chunks sale completo.
+- **Colisiones**: la caja del jugador (0.6×1.8) se mueve eje por eje en pasos pequeños.
+- **Apuntar**: un rayo recorre la cuadrícula de bloques (algoritmo DDA) para saber qué bloque y qué cara miras.
+- **Guardado**: solo se guardan la semilla, la posición, el inventario y los chunks modificados
+  (comprimidos con RLE + base64); lo demás se regenera desde la semilla.
+
+## Pruebas realizadas
+
+- 24 000 fotogramas de movimiento aleatorio con saltos, vuelo y fotogramas lentos: el jugador nunca queda dentro de un bloque.
+- 3 000 acciones aleatorias de construir/destruir: el jugador nunca queda atrapado.
+- Comparación del mallador optimizado contra la versión anterior: mismas caras, incluidos los bordes de chunk.
+- Guardar → cargar: los bloques, el inventario y la posición quedan idénticos; guardados dañados no rompen el juego.
+- Descargar y regenerar chunks lejanos da exactamente el mismo mundo.
+- Comprobación del recorte de pantalla (frustum) y del flujo completo de menús.
+
+## Limitaciones conocidas
+
+- Las hojas son opacas y no hay agua, cuevas ni enemigos.
+- LocalStorage tiene un límite (~5 MB): si se llena, el juego avisa al guardar.
+- Una distancia de dibujado alta (7–8) puede bajar los FPS en equipos modestos.
+
+## Ideas para mejorar
+
+Oclusión ambiental (sombras suaves en las esquinas), ciclo de día y noche, agua, cuevas, herramientas
+con durabilidad, crafteo, sonidos con Web Audio y carga de chunks en un Web Worker.
+
+## Solución de problemas
+
+- **Pantalla pequeña o sin formato**: falta `style.css` junto a `index.html`.
+- **Pantalla azul sin menú**: abre la consola (F12) y revisa el mensaje; comprueba que existan todos los `.js`.
+- **Mensaje de WebGL**: actualiza el navegador o los controladores de la tarjeta gráfica.
+- **El ratón no se captura**: haz clic en «Continuar»; si acabas de pulsar Esc, espera un segundo.

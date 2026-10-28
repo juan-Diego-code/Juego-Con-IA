@@ -196,6 +196,7 @@ class Renderer {
     this.atlas = this.createTexture(createAtlasCanvas());
     this.cube = this.createMesh(buildCubeMesh());
     this.eye = [0, 0, 0];
+    this.stats = { drawn: 0, total: 0 };
     this.fov = Math.PI / 3; // campo de visión (se cambia en Configuración)
     this.fogStart = 1e5; // sin niebla por defecto
     this.fogEnd = 1e5 + 1;
@@ -250,12 +251,12 @@ class Renderer {
   }
 
   // Malla sin índices: cada cara visible = 6 vértices (x,y,z,u,v,shade)
-  createChunkMesh(vertices) {
+  createChunkMesh(vertices, bounds) {
     const gl = this.gl;
     const vbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-    return { vbo, ibo: null, count: vertices.length / 6 };
+    return { vbo, ibo: null, count: vertices.length / 6, bounds };
   }
 
   deleteMesh(mesh) {
@@ -340,6 +341,23 @@ class Renderer {
     }
   }
 
+  // Planos del campo de visión a partir de la matriz proyección*vista (método de Gribb-Hartmann)
+  extractPlanes(m) {
+    const r = i => [m[i], m[4 + i], m[8 + i], m[12 + i]]; // fila i de la matriz
+    const r0 = r(0), r1 = r(1), r2 = r(2), r3 = r(3);
+    const comb = (a, b, k) => [a[0] + k * b[0], a[1] + k * b[1], a[2] + k * b[2], a[3] + k * b[3]];
+    return [comb(r3, r0, 1), comb(r3, r0, -1), comb(r3, r1, 1), comb(r3, r1, -1), comb(r3, r2, 1), comb(r3, r2, -1)];
+  }
+
+  // ¿La caja {x0,x1,y0,y1,z0,z1} toca el campo de visión? (si no, no se dibuja)
+  inFrustum(planes, b) {
+    for (const pl of planes) {
+      const px = pl[0] > 0 ? b.x1 : b.x0, py = pl[1] > 0 ? b.y1 : b.y0, pz = pl[2] > 0 ? b.z1 : b.z0;
+      if (pl[0] * px + pl[1] * py + pl[2] * pz + pl[3] < 0) return false;
+    }
+    return true;
+  }
+
   setFog(start, end) { this.fogStart = start; this.fogEnd = end; }
 
   render(view, meshes, target, eye) {
@@ -350,7 +368,14 @@ class Renderer {
     const aspect = this.canvas.width / this.canvas.height;
     const proj = Mat4.perspective(this.fov, aspect, 0.1, 300);
     const mvp = Mat4.multiply(proj, view);
-    for (const m of (meshes || [this.cube])) this.drawMesh(m, mvp);
+    const list = meshes || [this.cube], planes = this.extractPlanes(mvp);
+    let drawn = 0;
+    for (const m of list) {
+      if (m.bounds && !this.inFrustum(planes, m.bounds)) continue; // fuera de la pantalla
+      this.drawMesh(m, mvp);
+      drawn++;
+    }
+    this.stats = { drawn, total: list.length };
     if (target) this.drawOutline(mvp, target.x, target.y, target.z);
   }
 }
